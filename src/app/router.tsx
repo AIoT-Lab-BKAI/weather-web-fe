@@ -5,6 +5,7 @@ import { NotFound } from "../components/error/not-found";
 import { mainAppRouteTree } from "../features/admin/route";
 import { authRouteTree } from "../features/auth/route";
 import { informationalRouteTree } from "../features/informational/route";
+import { weatherMapRouteTree } from "@/features/weather-map/route";
 
 export const rootRoute = createRootRoute({
   component: () => (
@@ -21,6 +22,7 @@ export const routeTree = rootRoute.addChildren([
   mainAppRouteTree,
   informationalRouteTree,
   testRouteTree,
+  weatherMapRouteTree,
 ]);
 
 export const router = createRouter({ routeTree });
