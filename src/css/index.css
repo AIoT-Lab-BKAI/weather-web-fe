@@ -221,3 +221,36 @@
   ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #555; }
 }
+
+.leaflet-tooltip::before,
+.leaflet-tooltip::after {
+  display: none !important;
+}
+
+.cyclone-tooltip-content {
+  position: relative;
+}
+
+.cyclone-tooltip-content::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  
+  background: transparent;
+  backdrop-filter: none;
+
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid rgba(255, 255, 255, 0.7);
+}
+
+.leaflet-pane > .leaflet-tooltip {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
