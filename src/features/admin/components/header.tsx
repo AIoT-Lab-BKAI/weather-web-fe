@@ -4,9 +4,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button, Popover } from "antd";
 import { ChevronDown, LogOutIcon } from "lucide-react";
 import { useState } from "react";
+import { useAdminLayout } from "../context";
 
 export function HeaderComponent() {
   const { getUserQuery: { data: user }, logoutMutation } = useAuth();
+  const { headerTitle } = useAdminLayout();
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -23,8 +25,10 @@ export function HeaderComponent() {
   const isLoggedIn = !!user;
 
   return (
-    <header className="flex items-center justify-between h-[var(--header-height)] mx-4">
-      <AI4LIFELogo height={40} />
+    <header className="flex items-center justify-between h-[var(--header-height)] bg-white px-6">
+      <div>
+        <h1>{headerTitle}</h1>
+      </div>
       <Popover
         content={() => (
           <div className="flex flex-col space">
