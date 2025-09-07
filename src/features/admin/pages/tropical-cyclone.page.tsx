@@ -1,16 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PaginationContent, PaginationPrevious, PaginationLink, PaginationEllipsis, PaginationNext, Pagination, PaginationItem } from "@/components/ui/pagination";
-import { Pane } from "@/components/ui/pane";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { handleApiError } from "@/lib/error-handle";
 import { mockApiService } from "@/services/mock-api.service";
 import { PaginatedResult } from "@/types/interfaces/pagination";
-import { mdiDeleteOutline, mdiDownload, mdiTrashCan, mdiTrashCanOutline } from "@mdi/js";
+import { mdiDeleteOutline, mdiDownload } from "@mdi/js";
 import Icon from "@mdi/react";
 import { useQuery } from "@tanstack/react-query";
 import { notification } from "antd";
-import { Plus, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 interface TropicalCycloneFile {
