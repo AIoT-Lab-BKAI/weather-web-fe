@@ -15,6 +15,7 @@ export default antfu({
       "perfectionist/sort-imports": "off",
       "perfectionist/sort-named-imports": "off",
       "unicorn/prefer-node-protocol": "off",
+      "style/arrow-parens": "warn",
     },
   },
   react: {
