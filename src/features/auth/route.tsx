@@ -2,14 +2,12 @@ import { createRoute } from "@tanstack/react-router";
 import { rootRoute } from "../../app/router";
 import { AuthLayout } from "./layout";
 import { LoginPage } from "./pages/login.page";
-import { SignupPage } from "./pages/signup.page";
-import { requireGuest } from "@/lib/auth-guard";
+import { RegisterPage } from "./pages/register.page";
 
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "auth",
   component: AuthLayout,
-  beforeLoad: requireGuest,
 });
 
 const loginRoute = createRoute({
@@ -18,13 +16,13 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 
-const signupRoute = createRoute({
+const registerRoute = createRoute({
   getParentRoute: () => authRoute,
-  path: "/signup",
-  component: SignupPage,
+  path: "/register",
+  component: RegisterPage,
 });
 
 export const authRouteTree = authRoute.addChildren([
   loginRoute,
-  signupRoute,
+  registerRoute,
 ]);

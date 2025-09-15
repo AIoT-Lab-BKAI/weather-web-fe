@@ -5,16 +5,18 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Input, notification } from "antd";
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "lucide-react";
 import { useState } from "react";
+import { loginApi } from "../apis/auth.api";
 
 export function LoginPage() {
-  const auth = useAuth();
-  const [loginFormData, setLoginFormData] = useState({ username: "", password: "" });
+  const { login } = useAuth();
+  const [loginFormData, setLoginFormData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
   // const search = useSearch({ from: "/login" });
   const [showPassword, setShowPassword] = useState(false);
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   const handleLoginInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -26,26 +28,21 @@ export function LoginPage() {
 
   const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsLoginLoading(true);
     try {
       event.preventDefault();
       const formData = new FormData(event.currentTarget);
 
-      await auth.loginMutation.mutateAsync({
-        username: formData.get("username") as string,
+      await login(() => loginApi({
+        email: formData.get("email") as string,
         password: formData.get("password") as string,
-      });
+      }));
 
       notification.success({
         message: "Login successful",
       });
 
-      // Redirect to the intended page or dashboard
-      navigate({
-        to: "/dashboard",
-        search: {
-          isFromLogin: true,
-        },
-      });
+      navigate({ to: "/admin" });
     }
     catch (error: any) {
       handleApiError(error, {
@@ -53,9 +50,10 @@ export function LoginPage() {
         skipGlobal: true,
       });
     }
+    finally {
+      setIsLoginLoading(false);
+    }
   };
-
-  const loading = auth.loginMutation.isPending;
 
   return (
     <form onSubmit={handleLoginSubmit} className="rounded-lg p-8 w-full max-w-lg">
@@ -64,14 +62,14 @@ export function LoginPage() {
       </div>
       <div className="w-full max-w-lg space-y-4">
         <div>
-          <label className="">Email or username</label>
+          <label className="">Email</label>
           <Input
             placeholder="Email"
             className="border-0 focus-visible:ring-0 shadow-none h-10 mt-2"
             prefix={<MailIcon className="h-5 w-5 text-muted-foreground mr-1" />}
-            value={loginFormData.username}
+            value={loginFormData.email}
             onChange={handleLoginInputChange}
-            name="username"
+            name="email"
           />
         </div>
         <div>
@@ -91,10 +89,10 @@ export function LoginPage() {
           <Button variant="link">Forgot password</Button>
         </div>
         <div className="mb-8">
-          <Button className="w-full" disabled={loading}>Log In</Button>
+          <Button className="w-full" disabled={isLoginLoading}>Log In</Button>
         </div>
         <div className="mt-12 flex flex-col items-center">
-          <Link to="/signup">
+          <Link to="/register">
             <Button variant="link">Create a account</Button>
           </Link>
         </div>

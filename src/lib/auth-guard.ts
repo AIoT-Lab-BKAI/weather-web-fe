@@ -13,13 +13,3 @@ export function requireAuth() {
     });
   }
 }
-
-export function requireGuest() {
-  const token = localStorage.getItem(LS_KEY_ACCESS_TOKEN);
-
-  if (token) {
-    throw redirect({
-      to: "/dashboard",
-    });
-  }
-}

@@ -1,12 +1,12 @@
 export enum UserRoleEnum {
   ADMIN = "admin",
-  USER = "user",
+  MEMBER = "member",
 }
 
 export interface IUser {
   id: number;
-  username: string;
   email: string;
   role: UserRoleEnum;
+  username?: string;
   name?: string;
 }

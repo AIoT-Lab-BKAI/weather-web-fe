@@ -1,4 +1,3 @@
-import * as React from "react";
 import { createLink, LinkComponent } from "@tanstack/react-router";
 import { Button } from "./button";
 
