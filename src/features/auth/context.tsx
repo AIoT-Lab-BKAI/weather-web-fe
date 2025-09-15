@@ -1,16 +1,18 @@
 import { IUser } from "@/types/user";
-import { DefinedUseQueryResult, useMutation, UseMutationResult, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, ReactNode, useMemo, use } from "react";
-import { getProfileApi, googleLoginApi, loginApi, LoginDto, signupApi, SignupDto } from "./apis/auth.api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, ReactNode, use, useCallback, useMemo } from "react";
+import { getProfileApi } from "./apis/auth.api";
 
 import { LS_KEY_ACCESS_TOKEN } from "@/constants/ls-key.constant";
 
+type LoginFn = () => Promise<{ token: string }>;
+
 export interface AuthContextType {
-  getUserQuery: DefinedUseQueryResult<IUser | null>;
-  loginMutation: UseMutationResult<unknown, unknown, LoginDto>;
-  googleLoginMutation: UseMutationResult<unknown, unknown, string>;
-  signupMutation: UseMutationResult<unknown, unknown, SignupDto>;
-  logoutMutation: UseMutationResult<unknown, unknown, void>;
+  user: IUser | null;
+  isLoading: boolean;
+  refreshUser: () => void;
+  login: (fn: LoginFn) => Promise<void>;
+  logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,55 +20,47 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
-  const getUserQuery = useQuery<IUser | null>({
-    queryKey: ["/auth/profile"],
+  const {
+    data: user,
+    isLoading,
+    refetch: refreshUser,
+  } = useQuery<IUser | null>({
+    queryKey: ["profile"],
     queryFn: async () => {
       const storedToken = localStorage.getItem(LS_KEY_ACCESS_TOKEN);
-      if (!storedToken)
+      if (!storedToken) {
         return null;
-      const data = await getProfileApi();
-      return data;
+      }
+      return getProfileApi();
     },
     initialData: null,
   });
 
-  const handleSuccessLogin = (data: { accessToken: string }) => {
-    localStorage.setItem(LS_KEY_ACCESS_TOKEN, data.accessToken);
-    getUserQuery.refetch();
-  };
-
-  const loginMutation = useMutation({
-    mutationFn: async (dto: LoginDto) => loginApi(dto),
-    onSuccess: handleSuccessLogin,
-  });
-
-  const googleLoginMutation = useMutation({
-    mutationFn: async (code: string) => googleLoginApi(code),
-    onSuccess: handleSuccessLogin,
-  });
-
-  const signupMutation = useMutation({
-    mutationFn: async (dto: SignupDto) => signupApi(dto),
-    onSuccess: handleSuccessLogin,
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      localStorage.removeItem(LS_KEY_ACCESS_TOKEN);
-      queryClient.setQueryData(["/auth/me"], null);
+  const { mutateAsync: login } = useMutation({
+    mutationFn: async (fn: LoginFn) => {
+      const { token } = await fn();
+      localStorage.setItem(LS_KEY_ACCESS_TOKEN, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.refetchQueries({ queryKey: ["profile"] });
     },
   });
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(LS_KEY_ACCESS_TOKEN);
+    queryClient.setQueryData(["profile"], null);
+  }, [queryClient]);
+
   const authContextValue = useMemo<AuthContextType>(
     () => ({
-      getUserQuery,
-      loginMutation,
-      googleLoginMutation,
-      signupMutation,
-      logoutMutation,
+      user,
+      isLoading,
+      refreshUser,
+      login,
+      logout,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getUserQuery],
+    [user, isLoading, refreshUser, login, logout],
   );
 
   return (

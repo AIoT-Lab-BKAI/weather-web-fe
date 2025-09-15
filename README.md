@@ -5,7 +5,7 @@ A modern weather data visualization and management platform built with React, Ty
 ## 🌦️ Features
 
 - **Weather Data Visualization**: Interactive charts and maps for weather data analysis
-- **User Authentication**: Secure login/signup with Google OAuth integration
+- **User Authentication**: Secure login/register with Google OAuth integration
 - **Admin Dashboard**: Comprehensive administrative interface for data management
 - **Responsive Design**: Modern UI built with Tailwind CSS and shadcn/ui components
 - **Real-time Data**: Integration with weather APIs for live data updates
@@ -112,7 +112,7 @@ src/
 The application uses TanStack Router for type-safe routing:
 
 - `/` - Landing page
-- `/login`, `/signup` - Authentication pages
+- `/login`, `/register` - Authentication pages
 - `/admin/*` - Administrative dashboard
   - `/admin/dashboard` - Main dashboard
   - `/admin/profile` - User profile management

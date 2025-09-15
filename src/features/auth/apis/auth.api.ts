@@ -1,44 +1,51 @@
 import { apiService } from "@/services/api.service";
-import { IUser } from "@/types/user";
+import { IUser, UserRoleEnum } from "@/types/user";
 
 export interface LoginDto {
-  username: string;
-  password: string;
-}
-
-export async function loginApi(credentials: LoginDto) {
-  interface ResponseData {
-    accessToken: string;
-    user: IUser;
-  }
-
-  return apiService.post<ResponseData>("/auth/sign-in", credentials);
-}
-
-export async function googleLoginApi(code: string) {
-  interface ResponseData {
-    accessToken: string;
-    user: IUser;
-  }
-
-  return apiService.post<ResponseData>("/auth/google", { code });
-}
-
-export async function getProfileApi() {
-  return apiService.get<IUser>("/auth/me");
-}
-
-export interface SignupDto {
-  name: string;
   email: string;
   password: string;
 }
 
-export async function signupApi(credentials: SignupDto) {
-  interface ResponseData {
-    accessToken: string;
-    user: IUser;
-  }
+export async function loginApi(credentials: LoginDto) {
+  return apiService.post<
+    {
+      token: string;
+    }
+  >("/auth/login", credentials);
+}
 
-  return apiService.post<ResponseData>("/auth/sign-up", credentials);
+export async function googleLoginApi(_code: string) {
+  throw new Error("Not implemented");
+}
+
+export async function getProfileApi(): Promise<IUser> {
+  const data = await apiService.get<{
+    id: number;
+    email: string;
+    role: "Admin" | "Member";
+  }>("/auth/me");
+  const { id, email } = data;
+  const role = {
+    Admin: UserRoleEnum.ADMIN,
+    Member: UserRoleEnum.MEMBER,
+  }[data.role];
+
+  return {
+    id,
+    email,
+    role,
+  };
+}
+
+export interface RegisterDto {
+  email: string;
+  password: string;
+}
+
+export async function registerApi(credentials: RegisterDto) {
+  return apiService.post<
+    {
+      token: string;
+    }
+  >("/auth/register", credentials);
 }

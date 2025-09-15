@@ -1,7 +1,6 @@
 import { AdminLayout } from "@/features/admin/layout";
 import { PrecipitationPage } from "@/features/admin/pages/precipitation.page";
 import { DashboardProfilePage } from "@/features/admin/pages/profile.page";
-import { ReportPage } from "@/features/admin/pages/report.page";
 import { RiveLevelPage } from "@/features/admin/pages/rive-level.page";
 import { TropicalCyclonePage } from "@/features/admin/pages/tropical-cyclone.page";
 import { createRoute } from "@tanstack/react-router";
@@ -19,12 +18,6 @@ const profileRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "profile",
   component: DashboardProfilePage,
-});
-
-const reportRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "report",
-  component: ReportPage,
 });
 
 const precipitationRoute = createRoute({
@@ -47,7 +40,6 @@ const tropicalCycloneRoute = createRoute({
 
 export const mainAppRouteTree = adminRoute.addChildren([
   profileRoute,
-  reportRoute,
   precipitationRoute,
   riveLevelRoute,
   tropicalCycloneRoute,

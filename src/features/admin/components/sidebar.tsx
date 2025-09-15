@@ -1,11 +1,11 @@
-import { Link, LinkComponentProps } from "@tanstack/react-router";
-import clsx from "clsx";
-import { ChevronLeftIcon, ChevronRightIcon, HistoryIcon, UserIcon } from "lucide-react";
-import { useAdminLayout } from "../context";
 import { WeatherLogo } from "@/components/logos/weather-logo";
 import { cn } from "@/lib/utils";
+import { mdiWavesArrowUp, mdiWeatherHurricaneOutline, mdiWeatherPouring } from "@mdi/js";
 import Icon from "@mdi/react";
-import { mdiWavesArrowUp, mdiWeatherHurricaneOutline, mdiWeatherPouring, mdiWeatherRainy } from "@mdi/js";
+import { Link, LinkComponentProps } from "@tanstack/react-router";
+import clsx from "clsx";
+import { ChevronLeftIcon, ChevronRightIcon, UserIcon } from "lucide-react";
+import { useAdminLayout } from "../context";
 
 interface NavItemBase extends Omit<LinkComponentProps, "children"> {
   label: string;

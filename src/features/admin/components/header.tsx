@@ -1,13 +1,13 @@
-import { AI4LIFELogo } from "@/components/logos/ai4life-logo";
 import { useAuth } from "@/features/auth/context";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Popover } from "antd";
-import { ChevronDown, LogOutIcon } from "lucide-react";
+import { Popover } from "antd";
+import { ChevronDown, CircleUserIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
 import { useAdminLayout } from "../context";
+import { Button } from "@/components/ui/button";
 
 export function HeaderComponent() {
-  const { getUserQuery: { data: user }, logoutMutation } = useAuth();
+  const { user, logout } = useAuth();
   const { headerTitle } = useAdminLayout();
   const navigate = useNavigate();
 
@@ -18,7 +18,7 @@ export function HeaderComponent() {
   };
 
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
+    logout();
     navigate({ to: "/login" });
   };
 
@@ -29,28 +29,38 @@ export function HeaderComponent() {
       <div>
         <h1>{headerTitle}</h1>
       </div>
-      <Popover
-        content={() => (
-          <div className="flex flex-col space">
-            <Button type="text" onClick={handleLogout} className="text-left" icon={<LogOutIcon className="size-4" />} iconPosition="end">
-              {isLoggedIn ? "Logout" : "Login"}
-            </Button>
+      {isLoggedIn && (
+        <Popover
+          content={() => (
+            <div className="flex flex-col space">
+              <Button onClick={handleLogout} className="text-left">
+                <LogOutIcon className="size-4" />
+                {" "}
+                Logout
+              </Button>
+            </div>
+          )}
+          title="Account"
+          trigger="click"
+          placement="bottomRight"
+          open={open}
+          onOpenChange={handleOpenChange}
+          className="cursor-pointer"
+        >
+          <div className="flex items-center space-x-2">
+            <div className="">
+              <CircleUserIcon />
+            </div>
+            <span className="text-sm font-medium">{user.role}</span>
+            <ChevronDown className="size-4" />
           </div>
-        )}
-        title="Account"
-        trigger="click"
-        placement="bottomRight"
-        open={open}
-        onOpenChange={handleOpenChange}
-        className="cursor-pointer"
-      >
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gray-300" />
-          <span className="text-sm font-medium">{isLoggedIn ? user?.name : "Not logged in"}</span>
-          <ChevronDown className="size-4" />
-        </div>
-      </Popover>
-
+        </Popover>
+      )}
+      {!isLoggedIn && (
+        <Button variant="link" onClick={() => navigate({ to: "/login" })}>
+          Login
+        </Button>
+      )}
     </header>
   );
 }

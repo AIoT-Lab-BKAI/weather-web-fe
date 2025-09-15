@@ -7,7 +7,7 @@ import { notification } from "antd";
 import { useEffect, useState } from "react";
 
 export function DashboardProfilePage() {
-  const { getUserQuery: { data: user } } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
@@ -23,7 +23,7 @@ export function DashboardProfilePage() {
         name: user.name || "",
         email: user.email || "",
         username: user.username || "",
-        role: user.role.join(", ") || "",
+        role: user.role || "",
       });
     }
   }, [user]);
@@ -60,7 +60,7 @@ export function DashboardProfilePage() {
       name: user?.name || "",
       email: user?.email || "",
       username: user?.username || "",
-      role: user?.role.join(", ") || "",
+      role: user?.role || "",
     });
   };
 
