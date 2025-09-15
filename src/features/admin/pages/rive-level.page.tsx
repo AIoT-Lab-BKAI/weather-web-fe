@@ -25,23 +25,24 @@ import { z } from "zod";
 
 // Form schemas
 const reservoirSchema = z.object({
+  reservoir_id: z.number().min(0, "Reservoir ID is required"),
   reservoir_name: z.string().min(1, "Reservoir name is required"),
-  river: z.string().min(1, "River is required"),
-  province: z.string().min(1, "Province is required"),
-  capacity: z.number().min(0, "Capacity must be non-negative"),
-  elevation: z.number().min(0, "Elevation must be non-negative"),
+  river: z.string().nullable(),
+  province: z.string().nullable(),
+  capacity: z.number().min(0, "Capacity must be non-negative").nullable(),
+  elevation: z.number().min(0, "Elevation must be non-negative").nullable(),
 });
 
 const operationSchema = z.object({
   reservoir_id: z.number().min(0, "Reservoir ID is required"),
   timestamp: z.string().min(1, "Timestamp is required"),
-  water_level: z.number().min(0, "Water level must be non-negative"),
-  inflow: z.number().min(0, "Inflow must be non-negative"),
-  total_discharge: z.number().min(0, "Total discharge must be non-negative"),
-  turbine_discharge: z.number().min(0, "Turbine discharge must be non-negative"),
-  spillway_discharge: z.number().min(0, "Spillway discharge must be non-negative"),
-  num_bottom_gates: z.number().min(0, "Number of bottom gates must be non-negative"),
-  num_surface_gates: z.number().min(0, "Number of surface gates must be non-negative"),
+  water_level: z.number().min(0, "Water level must be non-negative").nullable(),
+  inflow: z.number().min(0, "Inflow must be non-negative").nullable(),
+  total_discharge: z.number().min(0, "Total discharge must be non-negative").nullable(),
+  turbine_discharge: z.number().min(0, "Turbine discharge must be non-negative").nullable(),
+  spillway_discharge: z.number().min(0, "Spillway discharge must be non-negative").nullable(),
+  num_bottom_gates: z.number().min(0, "Number of bottom gates must be non-negative").nullable(),
+  num_surface_gates: z.number().min(0, "Number of surface gates must be non-negative").nullable(),
 });
 
 const operationFileSchema = z.object({
@@ -49,6 +50,8 @@ const operationFileSchema = z.object({
   file_path: z.string().min(1, "File path is required"),
   from_time: z.string().min(1, "From time is required"),
   to_time: z.string().min(1, "To time is required"),
+  added_time: z.string().nullable(),
+  updated_time: z.string().nullable(),
 });
 
 export function RiveLevelPage() {
@@ -91,11 +94,12 @@ export function RiveLevelPage() {
   const reservoirForm = useForm<ReservoirCreate>({
     resolver: zodResolver(reservoirSchema),
     defaultValues: {
+      reservoir_id: 0,
       reservoir_name: "",
-      river: "",
-      province: "",
-      capacity: 0,
-      elevation: 0,
+      river: null,
+      province: null,
+      capacity: null,
+      elevation: null,
     },
   });
 
@@ -104,13 +108,13 @@ export function RiveLevelPage() {
     defaultValues: {
       reservoir_id: 0,
       timestamp: "",
-      water_level: 0,
-      inflow: 0,
-      total_discharge: 0,
-      turbine_discharge: 0,
-      spillway_discharge: 0,
-      num_bottom_gates: 0,
-      num_surface_gates: 0,
+      water_level: null,
+      inflow: null,
+      total_discharge: null,
+      turbine_discharge: null,
+      spillway_discharge: null,
+      num_bottom_gates: null,
+      num_surface_gates: null,
     },
   });
 
@@ -121,6 +125,8 @@ export function RiveLevelPage() {
       file_path: "",
       from_time: "",
       to_time: "",
+      added_time: null,
+      updated_time: null,
     },
   });
 
@@ -500,6 +506,24 @@ export function RiveLevelPage() {
       >
         <FormField
           control={reservoirForm.control}
+          name="reservoir_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reservoir ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Reservoir ID"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={reservoirForm.control}
           name="reservoir_name"
           render={({ field }) => (
             <FormItem>
@@ -518,7 +542,7 @@ export function RiveLevelPage() {
             <FormItem>
               <FormLabel>River</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="River name" />
+                <Input {...field} value={field.value || ""} placeholder="River name" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -531,7 +555,7 @@ export function RiveLevelPage() {
             <FormItem>
               <FormLabel>Province</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Province name" />
+                <Input {...field} value={field.value || ""} placeholder="Province name" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -546,9 +570,10 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   placeholder="Total capacity"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -564,9 +589,10 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   placeholder="Elevation above sea level"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -623,10 +649,11 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   step="0.01"
                   placeholder="Water level"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -642,10 +669,11 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   step="0.01"
                   placeholder="Inflow rate"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -661,10 +689,11 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   step="0.01"
                   placeholder="Total discharge"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -680,10 +709,11 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   step="0.01"
                   placeholder="Turbine discharge"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -699,10 +729,11 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   step="0.01"
                   placeholder="Spillway discharge"
-                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -718,9 +749,10 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   placeholder="Number of bottom gates"
-                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseInt(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -736,9 +768,10 @@ export function RiveLevelPage() {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   type="number"
                   placeholder="Number of surface gates"
-                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseInt(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -807,6 +840,32 @@ export function RiveLevelPage() {
               <FormLabel>To Time *</FormLabel>
               <FormControl>
                 <Input {...field} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="added_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Added Time</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="updated_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Updated Time</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} type="datetime-local" />
               </FormControl>
               <FormMessage />
             </FormItem>

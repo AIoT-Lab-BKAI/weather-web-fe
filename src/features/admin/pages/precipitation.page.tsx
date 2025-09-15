@@ -1,6 +1,5 @@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
 import { FormModal } from "@/components/shared/form-modal";
@@ -26,11 +25,12 @@ import { z } from "zod";
 
 // Form schemas
 const stationSchema = z.object({
+  station_id: z.number().min(0, "Station ID is required"),
   station_name: z.string().min(1, "Station name is required"),
-  latitude: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
-  longitude: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
-  elevation: z.number().min(0, "Elevation must be non-negative"),
-  province: z.string().min(1, "Province is required"),
+  latitude: z.number().min(-90).max(90, "Latitude must be between -90 and 90").nullable(),
+  longitude: z.number().min(-180).max(180, "Longitude must be between -180 and 180").nullable(),
+  elevation: z.number().min(0, "Elevation must be non-negative").nullable(),
+  province: z.string().nullable(),
 });
 
 const rainfallRecordSchema = z.object({
@@ -38,11 +38,14 @@ const rainfallRecordSchema = z.object({
   start_time: z.string().min(1, "Start time is required"),
   end_time: z.string().min(1, "End time is required"),
   accumulated_rainfall: z.number().min(0, "Accumulated rainfall must be non-negative"),
-  data_source: z.enum(["observation", "forecast", "analysis"]),
+  data_source: z.string().min(1, "Data source is required"),
 });
 
 const s2sFileSchema = z.object({
+  s2s_id: z.number().min(0, "S2S ID is required"),
   file_path: z.string().min(1, "File path is required"),
+  added_time: z.string().nullable(),
+  updated_time: z.string().nullable(),
 });
 
 export function PrecipitationPage() {
@@ -85,11 +88,12 @@ export function PrecipitationPage() {
   const stationForm = useForm<StationCreate>({
     resolver: zodResolver(stationSchema),
     defaultValues: {
+      station_id: 0,
       station_name: "",
-      latitude: 0,
-      longitude: 0,
-      elevation: 0,
-      province: "",
+      latitude: null,
+      longitude: null,
+      elevation: null,
+      province: null,
     },
   });
 
@@ -100,14 +104,17 @@ export function PrecipitationPage() {
       start_time: "",
       end_time: "",
       accumulated_rainfall: 0,
-      data_source: "observation",
+      data_source: "",
     },
   });
 
   const fileForm = useForm<S2SFileCreate>({
     resolver: zodResolver(s2sFileSchema),
     defaultValues: {
+      s2s_id: 0,
       file_path: "",
+      added_time: null,
+      updated_time: null,
     },
   });
 
@@ -475,6 +482,24 @@ export function PrecipitationPage() {
       >
         <FormField
           control={stationForm.control}
+          name="station_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Station ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Station ID"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stationForm.control}
           name="station_name"
           render={({ field }) => (
             <FormItem>
@@ -491,9 +516,9 @@ export function PrecipitationPage() {
           name="province"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Province *</FormLabel>
+              <FormLabel>Province</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Province" />
+                <Input {...field} value={field.value || ""} placeholder="Province" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -504,14 +529,15 @@ export function PrecipitationPage() {
           name="latitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Latitude *</FormLabel>
+              <FormLabel>Latitude</FormLabel>
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   placeholder="Latitude"
                   type="number"
                   step="any"
-                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -523,14 +549,15 @@ export function PrecipitationPage() {
           name="longitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Longitude *</FormLabel>
+              <FormLabel>Longitude</FormLabel>
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   placeholder="Longitude"
                   type="number"
                   step="any"
-                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -542,14 +569,15 @@ export function PrecipitationPage() {
           name="elevation"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Elevation (m) *</FormLabel>
+              <FormLabel>Elevation (m)</FormLabel>
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value?.toString() || ""}
                   placeholder="Elevation in meters"
                   type="number"
                   step="any"
-                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                  onChange={e => field.onChange(e.target.value ? Number.parseFloat(e.target.value) : null)}
                 />
               </FormControl>
               <FormMessage />
@@ -636,18 +664,9 @@ export function PrecipitationPage() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Data Source *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select data source" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="observation">Observation</SelectItem>
-                  <SelectItem value="forecast">Forecast</SelectItem>
-                  <SelectItem value="analysis">Analysis</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input {...field} placeholder="Data source (e.g. observation, forecast, analysis)" />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -665,12 +684,56 @@ export function PrecipitationPage() {
       >
         <FormField
           control={fileForm.control}
+          name="s2s_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>S2S ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="S2S ID"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
           name="file_path"
           render={({ field }) => (
             <FormItem>
               <FormLabel>File Path *</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="File path" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="added_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Added Time</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="updated_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Updated Time</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} type="datetime-local" />
               </FormControl>
               <FormMessage />
             </FormItem>

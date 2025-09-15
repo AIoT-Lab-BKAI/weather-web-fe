@@ -1,30 +1,32 @@
 // Reservoir Types
 export interface ReservoirCreate {
+  reservoir_id: number;
   reservoir_name: string;
-  river: string;
-  province: string;
-  capacity: number;
-  elevation: number;
+  river: string | null;
+  province: string | null;
+  capacity: number | null;
+  elevation: number | null;
 }
 
 export interface ReservoirRead {
   reservoir_id: number;
   reservoir_name: string;
-  river: string;
-  province: string;
-  capacity: number;
-  elevation: number;
+  river: string | null;
+  province: string | null;
+  capacity: number | null;
+  elevation: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
 }
 
 export interface ReservoirUpdate {
+  reservoir_id?: number;
   reservoir_name?: string;
-  river?: string;
-  province?: string;
-  capacity?: number;
-  elevation?: number;
+  river?: string | null;
+  province?: string | null;
+  capacity?: number | null;
+  elevation?: number | null;
 }
 
 export interface ReservoirPagination {
@@ -41,25 +43,25 @@ export interface ReservoirPagination {
 export interface ReservoirOperationCreate {
   reservoir_id: number;
   timestamp: string;
-  water_level: number;
-  inflow: number;
-  total_discharge: number;
-  turbine_discharge: number;
-  spillway_discharge: number;
-  num_bottom_gates: number;
-  num_surface_gates: number;
+  water_level: number | null;
+  inflow: number | null;
+  total_discharge: number | null;
+  turbine_discharge: number | null;
+  spillway_discharge: number | null;
+  num_bottom_gates: number | null;
+  num_surface_gates: number | null;
 }
 
 export interface ReservoirOperationRead {
   reservoir_id: number;
   timestamp: string;
-  water_level: number;
-  inflow: number;
-  total_discharge: number;
-  turbine_discharge: number;
-  spillway_discharge: number;
-  num_bottom_gates: number;
-  num_surface_gates: number;
+  water_level: number | null;
+  inflow: number | null;
+  total_discharge: number | null;
+  turbine_discharge: number | null;
+  spillway_discharge: number | null;
+  num_bottom_gates: number | null;
+  num_surface_gates: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -68,13 +70,13 @@ export interface ReservoirOperationRead {
 export interface ReservoirOperationUpdate {
   reservoir_id?: number;
   timestamp?: string;
-  water_level?: number;
-  inflow?: number;
-  total_discharge?: number;
-  turbine_discharge?: number;
-  spillway_discharge?: number;
-  num_bottom_gates?: number;
-  num_surface_gates?: number;
+  water_level?: number | null;
+  inflow?: number | null;
+  total_discharge?: number | null;
+  turbine_discharge?: number | null;
+  spillway_discharge?: number | null;
+  num_bottom_gates?: number | null;
+  num_surface_gates?: number | null;
 }
 
 export interface ReservoirOperationPagination {
@@ -93,6 +95,8 @@ export interface ReservoirOperationFileCreate {
   file_path: string;
   from_time: string;
   to_time: string;
+  added_time: string | null;
+  updated_time: string | null;
 }
 
 export interface ReservoirOperationFileRead {
@@ -110,6 +114,8 @@ export interface ReservoirOperationFileUpdate {
   file_path?: string;
   from_time?: string;
   to_time?: string;
+  added_time?: string | null;
+  updated_time?: string | null;
 }
 
 export interface ReservoirOperationFilePagination {
