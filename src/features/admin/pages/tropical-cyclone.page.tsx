@@ -1,218 +1,799 @@
-import { Button } from "@/components/ui/button";
+import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
+import { FormModal } from "@/components/shared/form-modal";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { handleApiError } from "@/lib/error-handle";
-import { mockApiService } from "@/services/mock-api.service";
-import { PaginatedResult } from "@/types/interfaces/pagination";
-import { mdiDeleteOutline, mdiDownload } from "@mdi/js";
-import Icon from "@mdi/react";
-import { useQuery } from "@tanstack/react-query";
+import { stormsApi } from "@/services/apis/storms.api";
+import {
+  BestTrackFileRead,
+  BestTrackFileCreate,
+  BestTrackFileUpdate,
+  HRESDataRead,
+  HRESDataCreate,
+  HRESDataUpdate,
+  NWPDataRead,
+  NWPDataCreate,
+  NWPDataUpdate,
+  StormCreate,
+  StormRead,
+  StormUpdate,
+} from "@/types/storms";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
-import { PlusIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
-interface TropicalCycloneFile {
-  id: string;
-  name: string;
-  modifiedAt: string;
-  modifiedBy: string;
-  fileSize: string;
-  createdAt: string;
-}
+// Form schemas
+const stormSchema = z.object({
+  storm_name: z.string().min(1, "Name is required"),
+  storm_id: z.number().min(0, "Storm ID is required"),
+});
+
+const bestTrackSchema = z.object({
+  storm_id: z.number().min(0, "Storm ID is required"),
+  issued_time: z.string().min(1, "Issued time is required"),
+  file_name: z.string().min(1, "File name is required"),
+});
+
+const nwpDataSchema = z.object({
+  storm_id: z.number().min(0, "Storm ID is required"),
+  nwp_path: z.string().min(1, "NWP path is required"),
+  issued_time: z.string().min(1, "Issued time is required"),
+});
+
+const hresDataSchema = z.object({
+  storm_id: z.number().min(0, "Storm ID is required"),
+  hres_path: z.string().min(1, "HRES path is required"),
+  issued_time: z.string().min(1, "Issued time is required"),
+});
 
 export function TropicalCyclonePage() {
-  const [tableState, setTableState] = useState({
+  const [activeTab, setActiveTab] = useState("storms");
+  const queryClient = useQueryClient();
+
+  // States for each tab
+  const [stormsState, setStormsState] = useState<TableState>({
     itemsPerPage: 10,
     page: 1,
     search: "",
   });
+  const [stormsInput, setStormsInput] = useState({ search: "" });
 
-  const [tableInput, setTableInput] = useState({
+  const [bestTrackState, setBestTrackState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
     search: "",
   });
+  const [bestTrackInput, setBestTrackInput] = useState({ search: "" });
 
-  const listTropicalCycloneFilesQuery = useQuery({
-    queryKey: ["/tropical-cyclone-files", tableState],
-    queryFn: () => {
-      return mockApiService.get<PaginatedResult<TropicalCycloneFile>>(`/tropical-cyclone-files`, {
-        params: {
-          limit: tableState.itemsPerPage,
-          page: tableState.page,
-          search: tableState.search,
-        },
-      });
+  const [nwpState, setNwpState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
+    search: "",
+  });
+  const [nwpInput, setNwpInput] = useState({ search: "" });
+
+  const [hresState, setHresState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
+    search: "",
+  });
+  const [hresInput, setHresInput] = useState({ search: "" });
+
+  // Modal states
+  const [stormModalOpen, setStormModalOpen] = useState(false);
+  const [bestTrackModalOpen, setBestTrackModalOpen] = useState(false);
+  const [nwpModalOpen, setNwpModalOpen] = useState(false);
+  const [hresModalOpen, setHresModalOpen] = useState(false);
+
+  // Edit states
+  const [editingStorm, setEditingStorm] = useState<StormRead | null>(null);
+  const [editingBestTrack, setEditingBestTrack] = useState<BestTrackFileRead | null>(null);
+  const [editingNwp, setEditingNwp] = useState<NWPDataRead | null>(null);
+  const [editingHres, setEditingHres] = useState<HRESDataRead | null>(null);
+
+  // Forms
+  const stormForm = useForm<StormCreate>({
+    resolver: zodResolver(stormSchema),
+    defaultValues: {
+      storm_name: "",
+      storm_id: 0,
     },
   });
 
-  const tableData = useMemo(() => {
-    const blankTableData = {
-      rows: [],
-      currentPage: 1,
-      totalItems: 0,
-      totalPages: 1,
-    };
-    if (listTropicalCycloneFilesQuery.isSuccess) {
-      const { data: rows, meta: { page: currentPage, total: totalItems, totalPages } } = listTropicalCycloneFilesQuery.data;
-      return { rows, currentPage, totalItems, totalPages };
-    }
+  const bestTrackForm = useForm<BestTrackFileCreate>({
+    resolver: zodResolver(bestTrackSchema),
+    defaultValues: {
+      storm_id: 0,
+      issued_time: "",
+      file_name: "",
+    },
+  });
 
-    return blankTableData;
-  }, [listTropicalCycloneFilesQuery.isSuccess, listTropicalCycloneFilesQuery.data]);
+  const nwpForm = useForm<NWPDataCreate>({
+    resolver: zodResolver(nwpDataSchema),
+    defaultValues: {
+      storm_id: 0,
+      nwp_path: "",
+      issued_time: "",
+    },
+  });
 
+  const hresForm = useForm<HRESDataCreate>({
+    resolver: zodResolver(hresDataSchema),
+    defaultValues: {
+      storm_id: 0,
+      hres_path: "",
+      issued_time: "",
+    },
+  });
+
+  // Queries
+  const stormsQuery = useQuery({
+    queryKey: ["storms", stormsState],
+    queryFn: () => stormsApi.storms.list({
+      page: stormsState.page,
+      limit: stormsState.itemsPerPage,
+      search: stormsState.search,
+    }),
+  });
+
+  const bestTrackQuery = useQuery({
+    queryKey: ["besttrack-files", bestTrackState],
+    queryFn: () => stormsApi.bestTrackFiles.list({
+      page: bestTrackState.page,
+      limit: bestTrackState.itemsPerPage,
+      search: bestTrackState.search,
+    }),
+  });
+
+  const nwpQuery = useQuery({
+    queryKey: ["nwp-data", nwpState],
+    queryFn: () => stormsApi.nwpData.list({
+      page: nwpState.page,
+      limit: nwpState.itemsPerPage,
+      search: nwpState.search,
+    }),
+  });
+
+  const hresQuery = useQuery({
+    queryKey: ["hres-data", hresState],
+    queryFn: () => stormsApi.hresData.list({
+      page: hresState.page,
+      limit: hresState.itemsPerPage,
+      search: hresState.search,
+    }),
+  });
+
+  // Mutations
+  const createStormMutation = useMutation({
+    mutationFn: stormsApi.storms.create,
+    onSuccess: () => {
+      notification.success({ message: "Storm created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["storms"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create storm" }),
+  });
+
+  const updateStormMutation = useMutation({
+    mutationFn: ({ storm_id, data }: { storm_id: number; data: StormUpdate }) =>
+      stormsApi.storms.update(storm_id, data),
+    onSuccess: () => {
+      notification.success({ message: "Storm updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["storms"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update storm" }),
+  });
+
+  const deleteStormMutation = useMutation({
+    mutationFn: stormsApi.storms.delete,
+    onSuccess: () => {
+      notification.success({ message: "Storm deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["storms"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete storm" }),
+  });
+
+  // BestTrack mutations
+  const createBestTrackMutation = useMutation({
+    mutationFn: stormsApi.bestTrackFiles.create,
+    onSuccess: () => {
+      notification.success({ message: "BestTrack file created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["besttrack-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create BestTrack file" }),
+  });
+
+  const updateBestTrackMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: BestTrackFileUpdate }) =>
+      stormsApi.bestTrackFiles.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "BestTrack file updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["besttrack-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update BestTrack file" }),
+  });
+
+  const deleteBestTrackMutation = useMutation({
+    mutationFn: stormsApi.bestTrackFiles.delete,
+    onSuccess: () => {
+      notification.success({ message: "BestTrack file deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["besttrack-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete BestTrack file" }),
+  });
+
+  // NWP mutations
+  const createNwpMutation = useMutation({
+    mutationFn: stormsApi.nwpData.create,
+    onSuccess: () => {
+      notification.success({ message: "NWP data created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["nwp-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create NWP data" }),
+  });
+
+  const updateNwpMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: NWPDataUpdate }) =>
+      stormsApi.nwpData.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "NWP data updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["nwp-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update NWP data" }),
+  });
+
+  const deleteNwpMutation = useMutation({
+    mutationFn: stormsApi.nwpData.delete,
+    onSuccess: () => {
+      notification.success({ message: "NWP data deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["nwp-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete NWP data" }),
+  });
+
+  // HRES mutations
+  const createHresMutation = useMutation({
+    mutationFn: stormsApi.hresData.create,
+    onSuccess: () => {
+      notification.success({ message: "HRES data created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["hres-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create HRES data" }),
+  });
+
+  const updateHresMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: HRESDataUpdate }) =>
+      stormsApi.hresData.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "HRES data updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["hres-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update HRES data" }),
+  });
+
+  const deleteHresMutation = useMutation({
+    mutationFn: stormsApi.hresData.delete,
+    onSuccess: () => {
+      notification.success({ message: "HRES data deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["hres-data"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete HRES data" }),
+  });
+
+  // Handle errors
   useEffect(() => {
-    if (listTropicalCycloneFilesQuery.isError) {
-      handleApiError(listTropicalCycloneFilesQuery.error, {
-        customMessage: "Failed to load tropical cyclone files",
-      });
+    if (stormsQuery.isError) {
+      handleApiError(stormsQuery.error, { customMessage: "Failed to load storms" });
     }
-  }, [listTropicalCycloneFilesQuery.isError, listTropicalCycloneFilesQuery.error]);
+    if (bestTrackQuery.isError) {
+      handleApiError(bestTrackQuery.error, { customMessage: "Failed to load best track files" });
+    }
+    if (nwpQuery.isError) {
+      handleApiError(nwpQuery.error, { customMessage: "Failed to load NWP data" });
+    }
+    if (hresQuery.isError) {
+      handleApiError(hresQuery.error, { customMessage: "Failed to load HRES data" });
+    }
+  }, [stormsQuery.isError, stormsQuery.error, bestTrackQuery.isError, bestTrackQuery.error, nwpQuery.isError, nwpQuery.error, hresQuery.isError, hresQuery.error]);
 
-  const deleteTropicalCycloneFile = async (fileId: string) => {
-    try {
-      await mockApiService.delete(`/tropical-cyclone-files/delete`, {
-        params: { id: fileId },
-      });
-      notification.success({
-        message: "File deleted successfully",
-      });
-      // Refetch the files after deletion
-      listTropicalCycloneFilesQuery.refetch();
+  // Storm columns
+  const stormColumns: TableColumn<StormRead>[] = [
+    { key: "storm_name", header: "Name" },
+    { key: "storm_id", header: "Storm ID" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // BestTrack file columns
+  const bestTrackColumns: TableColumn<BestTrackFileRead>[] = [
+    { key: "file_name", header: "File Name" },
+    { key: "storm_id", header: "Storm ID" },
+    { key: "issued_time", header: "Issued Time" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // NWP data columns
+  const nwpColumns: TableColumn<NWPDataRead>[] = [
+    { key: "nwp_path", header: "NWP Path" },
+    { key: "storm_id", header: "Storm ID" },
+    { key: "issued_time", header: "Issued Time" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // HRES data columns
+  const hresColumns: TableColumn<HRESDataRead>[] = [
+    { key: "hres_path", header: "HRES Path" },
+    { key: "storm_id", header: "Storm ID" },
+    { key: "issued_time", header: "Issued Time" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // Handle storm operations
+  const handleAddStorm = () => {
+    setEditingStorm(null);
+    stormForm.reset();
+    setStormModalOpen(true);
+  };
+
+  const handleEditStorm = (storm: StormRead) => {
+    setEditingStorm(storm);
+    stormForm.reset(storm);
+    setStormModalOpen(true);
+  };
+
+  const handleStormSubmit = async (data: StormCreate) => {
+    if (editingStorm) {
+      await updateStormMutation.mutateAsync({ storm_id: editingStorm.storm_id, data });
     }
-    catch (error) {
-      handleApiError(error, {
-        customMessage: "Failed to delete file",
-      });
+    else {
+      await createStormMutation.mutateAsync(data);
     }
   };
 
-  const handleCreateOrUpload = () => {
-    // TODO: Implement create or upload functionality
-    notification.info({
-      message: "Create or upload functionality will be implemented",
+  const handleDeleteStorm = (storm: StormRead) => {
+    deleteStormMutation.mutate(storm.storm_id);
+  };
+
+  // Handle BestTrack operations
+  const handleAddBestTrack = () => {
+    setEditingBestTrack(null);
+    bestTrackForm.reset();
+    setBestTrackModalOpen(true);
+  };
+
+  const handleEditBestTrack = (file: BestTrackFileRead) => {
+    setEditingBestTrack(file);
+    bestTrackForm.reset({
+      storm_id: file.storm_id,
+      issued_time: file.issued_time,
+      file_name: file.file_name,
     });
+    setBestTrackModalOpen(true);
+  };
+
+  const handleBestTrackSubmit = async (data: BestTrackFileCreate) => {
+    if (editingBestTrack && editingBestTrack.id) {
+      await updateBestTrackMutation.mutateAsync({ id: editingBestTrack.id, data });
+    }
+    else {
+      await createBestTrackMutation.mutateAsync(data);
+    }
+    setBestTrackModalOpen(false);
+  };
+
+  const handleDeleteBestTrack = (file: BestTrackFileRead) => {
+    if (file.id) {
+      deleteBestTrackMutation.mutate(file.id);
+    }
+  };
+
+  // Handle NWP operations
+  const handleAddNwp = () => {
+    setEditingNwp(null);
+    nwpForm.reset();
+    setNwpModalOpen(true);
+  };
+
+  const handleEditNwp = (data: NWPDataRead) => {
+    setEditingNwp(data);
+    nwpForm.reset({
+      storm_id: data.storm_id,
+      nwp_path: data.nwp_path,
+      issued_time: data.issued_time,
+    });
+    setNwpModalOpen(true);
+  };
+
+  const handleNwpSubmit = async (data: NWPDataCreate) => {
+    if (editingNwp && editingNwp.id) {
+      await updateNwpMutation.mutateAsync({ id: editingNwp.id, data });
+    }
+    else {
+      await createNwpMutation.mutateAsync(data);
+    }
+    setNwpModalOpen(false);
+  };
+
+  const handleDeleteNwp = (data: NWPDataRead) => {
+    if (data.id) {
+      deleteNwpMutation.mutate(data.id);
+    }
+  };
+
+  // Handle HRES operations
+  const handleAddHres = () => {
+    setEditingHres(null);
+    hresForm.reset();
+    setHresModalOpen(true);
+  };
+
+  const handleEditHres = (data: HRESDataRead) => {
+    setEditingHres(data);
+    hresForm.reset({
+      storm_id: data.storm_id,
+      hres_path: data.hres_path,
+      issued_time: data.issued_time,
+    });
+    setHresModalOpen(true);
+  };
+
+  const handleHresSubmit = async (data: HRESDataCreate) => {
+    if (editingHres && editingHres.id) {
+      await updateHresMutation.mutateAsync({ id: editingHres.id, data });
+    }
+    else {
+      await createHresMutation.mutateAsync(data);
+    }
+    setHresModalOpen(false);
+  };
+
+  const handleDeleteHres = (data: HRESDataRead) => {
+    if (data.id) {
+      deleteHresMutation.mutate(data.id);
+    }
+  };
+
+  // Transform data for tables
+  const stormsData = {
+    rows: stormsQuery.data?.data || [],
+    currentPage: stormsQuery.data?.meta.page || 1,
+    totalItems: stormsQuery.data?.meta.total || 0,
+    totalPages: stormsQuery.data?.meta.totalPages || 1,
+  };
+
+  const bestTrackData = {
+    rows: bestTrackQuery.data?.data || [],
+    currentPage: bestTrackQuery.data?.meta.page || 1,
+    totalItems: bestTrackQuery.data?.meta.total || 0,
+    totalPages: bestTrackQuery.data?.meta.totalPages || 1,
+  };
+
+  const nwpData = {
+    rows: nwpQuery.data?.data || [],
+    currentPage: nwpQuery.data?.meta.page || 1,
+    totalItems: nwpQuery.data?.meta.total || 0,
+    totalPages: nwpQuery.data?.meta.totalPages || 1,
+  };
+
+  const hresData = {
+    rows: hresQuery.data?.data || [],
+    currentPage: hresQuery.data?.meta.page || 1,
+    totalItems: hresQuery.data?.meta.total || 0,
+    totalPages: hresQuery.data?.meta.totalPages || 1,
   };
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8 max-w-7xl mx-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="storms">Storms</TabsTrigger>
+          <TabsTrigger value="besttrack">BestTrack Files</TabsTrigger>
+          <TabsTrigger value="nwp">NWP Data</TabsTrigger>
+          <TabsTrigger value="hres">HRES Data</TabsTrigger>
+        </TabsList>
 
-      {/* Header with Create/Upload Button */}
-      <div className="flex flex-row-reverse items-center mb-4">
-        <div className="relative w-64 hidden">
-          <Input
-            className="pl-10 pr-4 bg-[#f7f9fa] border rounded-full"
-            placeholder="Search"
-            value={tableInput.search}
-            onChange={(e) => { setTableInput(p => ({ ...p, search: e.target.value })); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setTableState(p => ({ ...p, page: 1, search: tableInput.search }));
-              }
-            }}
+        <TabsContent value="storms" className="mt-6">
+          <DataTable
+            data={stormsData}
+            columns={stormColumns}
+            tableState={stormsState}
+            tableInput={stormsInput}
+            onTableStateChange={changes => setStormsState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setStormsInput}
+            onAdd={handleAddStorm}
+            onEdit={handleEditStorm}
+            onDelete={handleDeleteStorm}
+            addLabel="Add Storm"
+            emptyMessage="No storms found"
+            showSearch={true}
+            isLoading={stormsQuery.isLoading}
+            getItemId={storm => storm.storm_id.toString()}
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 6.5 6.5a7.5 7.5 0 0 0 10.6 10.6z" /></svg>
-          </span>
-        </div>
-        <Button onClick={handleCreateOrUpload} className="text-white rounded-full">
-          <PlusIcon className="mr-2" />
-          Create or Upload
-        </Button>
+        </TabsContent>
 
-      </div>
+        <TabsContent value="besttrack" className="mt-6">
+          <DataTable
+            data={bestTrackData}
+            columns={bestTrackColumns}
+            tableState={bestTrackState}
+            tableInput={bestTrackInput}
+            onTableStateChange={changes => setBestTrackState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setBestTrackInput}
+            onAdd={handleAddBestTrack}
+            onEdit={handleEditBestTrack}
+            onDelete={handleDeleteBestTrack}
+            addLabel="Add BestTrack File"
+            emptyMessage="No best track files found"
+            showSearch={true}
+            isLoading={bestTrackQuery.isLoading}
+            getItemId={file => file.id || ""}
+          />
+        </TabsContent>
 
-      {/* Table */}
-      <div className="rounded-xl overflow-hidden">
-        <Table className="">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Modified</TableHead>
-              <TableHead>Modified by</TableHead>
-              <TableHead>File size</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tableData?.rows.map(row => (
-              <TableRow key={row.id} className="bg-white">
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{row.modifiedAt}</TableCell>
-                <TableCell>{row.modifiedBy}</TableCell>
-                <TableCell>{row.fileSize}</TableCell>
-                <TableCell className="flex justify-center items-center">
-                  <Button size="icon" variant="ghost" title="Download"><Icon path={mdiDownload} size={1} /></Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Delete"
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to delete this file?")) {
-                        deleteTropicalCycloneFile(row.id);
-                      }
-                    }}
-                  >
-                    <Icon path={mdiDeleteOutline} size={1} />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {tableData?.rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-4">
-                  No tropical cyclone files found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="nwp" className="mt-6">
+          <DataTable
+            data={nwpData}
+            columns={nwpColumns}
+            tableState={nwpState}
+            tableInput={nwpInput}
+            onTableStateChange={changes => setNwpState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setNwpInput}
+            onAdd={handleAddNwp}
+            onEdit={handleEditNwp}
+            onDelete={handleDeleteNwp}
+            addLabel="Add NWP Data"
+            emptyMessage="No NWP data found"
+            showSearch={true}
+            isLoading={nwpQuery.isLoading}
+            getItemId={data => data.id || ""}
+          />
+        </TabsContent>
 
-      {/* Pagination */}
-      <div className="flex justify-center items-center mt-6">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page > 1) {
-                    setTableState(p => ({ ...p, page: p.page - 1 }));
-                  }
-                }}
-                className={tableState.page === 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-            {Array.from({ length: tableData?.totalPages || 1 }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTableState(p => ({ ...p, page: i + 1 }));
-                  }}
-                  isActive={tableState.page === i + 1}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page < (tableData?.totalPages || 1)) {
-                    setTableState(p => ({ ...p, page: p.page + 1 }));
-                  }
-                }}
-                className={tableState.page === (tableData?.totalPages || 1) ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
+        <TabsContent value="hres" className="mt-6">
+          <DataTable
+            data={hresData}
+            columns={hresColumns}
+            tableState={hresState}
+            tableInput={hresInput}
+            onTableStateChange={changes => setHresState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setHresInput}
+            onAdd={handleAddHres}
+            onEdit={handleEditHres}
+            onDelete={handleDeleteHres}
+            addLabel="Add HRES Data"
+            emptyMessage="No HRES data found"
+            showSearch={true}
+            isLoading={hresQuery.isLoading}
+            getItemId={data => data.id || ""}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Storm Form Modal */}
+      <FormModal
+        open={stormModalOpen}
+        onOpenChange={setStormModalOpen}
+        title={editingStorm ? "Edit Storm" : "Add Storm"}
+        form={stormForm}
+        onSubmit={handleStormSubmit}
+        isLoading={createStormMutation.isPending || updateStormMutation.isPending}
+      >
+        <FormField
+          control={stormForm.control}
+          name="storm_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Storm name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stormForm.control}
+          name="storm_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Storm ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Storm ID"
+                  type="number"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* BestTrack Form Modal */}
+      <FormModal
+        open={bestTrackModalOpen}
+        onOpenChange={setBestTrackModalOpen}
+        title={editingBestTrack ? "Edit BestTrack File" : "Add BestTrack File"}
+        form={bestTrackForm}
+        onSubmit={handleBestTrackSubmit}
+        isLoading={createBestTrackMutation.isPending || updateBestTrackMutation.isPending}
+      >
+        <FormField
+          control={bestTrackForm.control}
+          name="storm_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Storm ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Storm ID"
+                  type="number"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={bestTrackForm.control}
+          name="issued_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Issued Time *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Issued time" type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={bestTrackForm.control}
+          name="file_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>File Name *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="File name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* NWP Form Modal */}
+      <FormModal
+        open={nwpModalOpen}
+        onOpenChange={setNwpModalOpen}
+        title={editingNwp ? "Edit NWP Data" : "Add NWP Data"}
+        form={nwpForm}
+        onSubmit={handleNwpSubmit}
+        isLoading={createNwpMutation.isPending || updateNwpMutation.isPending}
+      >
+        <FormField
+          control={nwpForm.control}
+          name="storm_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Storm ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Storm ID"
+                  type="number"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={nwpForm.control}
+          name="nwp_path"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>NWP Path *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="NWP file path" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={nwpForm.control}
+          name="issued_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Issued Time *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Issued time" type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* HRES Form Modal */}
+      <FormModal
+        open={hresModalOpen}
+        onOpenChange={setHresModalOpen}
+        title={editingHres ? "Edit HRES Data" : "Add HRES Data"}
+        form={hresForm}
+        onSubmit={handleHresSubmit}
+        isLoading={createHresMutation.isPending || updateHresMutation.isPending}
+      >
+        <FormField
+          control={hresForm.control}
+          name="storm_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Storm ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Storm ID"
+                  type="number"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={hresForm.control}
+          name="hres_path"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>HRES Path *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="HRES file path" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={hresForm.control}
+          name="issued_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Issued Time *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Issued time" type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
     </div>
   );
 }

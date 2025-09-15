@@ -6,7 +6,6 @@ export interface PaginationQueryDto {
 
 export interface PaginatedMeta {
   page: number;
-  perPage: number;
   total: number;
   totalPages: number;
 }
