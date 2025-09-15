@@ -1,218 +1,682 @@
-import { Button } from "@/components/ui/button";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
+import { FormModal } from "@/components/shared/form-modal";
 import { handleApiError } from "@/lib/error-handle";
-import { mockApiService } from "@/services/mock-api.service";
-import { PaginatedResult } from "@/types/interfaces/pagination";
-import { mdiDeleteOutline, mdiDownload } from "@mdi/js";
-import Icon from "@mdi/react";
-import { useQuery } from "@tanstack/react-query";
+import { precipitationApi } from "@/services/apis/precipitation.api";
+import {
+  StationRead,
+  StationCreate,
+  StationUpdate,
+  RainfallRecordRead,
+  RainfallRecordCreate,
+  RainfallRecordUpdate,
+  S2SFileRead,
+  S2SFileCreate,
+  S2SFileUpdate,
+} from "@/types/precipitation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
-import { PlusIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-interface PrecipitationFile {
-  id: string;
-  name: string;
-  modifiedAt: string;
-  modifiedBy: string;
-  fileSize: string;
-  createdAt: string;
-}
+// Form schemas
+const stationSchema = z.object({
+  station_name: z.string().min(1, "Station name is required"),
+  latitude: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
+  longitude: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
+  elevation: z.number().min(0, "Elevation must be non-negative"),
+  province: z.string().min(1, "Province is required"),
+});
+
+const rainfallRecordSchema = z.object({
+  station_id: z.number().min(0, "Station ID is required"),
+  start_time: z.string().min(1, "Start time is required"),
+  end_time: z.string().min(1, "End time is required"),
+  accumulated_rainfall: z.number().min(0, "Accumulated rainfall must be non-negative"),
+  data_source: z.enum(["observation", "forecast", "analysis"]),
+});
+
+const s2sFileSchema = z.object({
+  file_path: z.string().min(1, "File path is required"),
+});
 
 export function PrecipitationPage() {
-  const [tableState, setTableState] = useState({
+  const [activeTab, setActiveTab] = useState("stations");
+  const queryClient = useQueryClient();
+
+  // States for each tab
+  const [stationsState, setStationsState] = useState<TableState>({
     itemsPerPage: 10,
     page: 1,
     search: "",
   });
+  const [stationsInput, setStationsInput] = useState({ search: "" });
 
-  const [tableInput, setTableInput] = useState({
+  const [recordsState, setRecordsState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
     search: "",
   });
+  const [recordsInput, setRecordsInput] = useState({ search: "" });
 
-  const listPrecipitationFilesQuery = useQuery({
-    queryKey: ["/precipitation-files", tableState],
-    queryFn: () => {
-      return mockApiService.get<PaginatedResult<PrecipitationFile>>(`/precipitation-files`, {
-        params: {
-          limit: tableState.itemsPerPage,
-          page: tableState.page,
-          search: tableState.search,
-        },
-      });
+  const [filesState, setFilesState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
+    search: "",
+  });
+  const [filesInput, setFilesInput] = useState({ search: "" });
+
+  // Modal states
+  const [stationModalOpen, setStationModalOpen] = useState(false);
+  const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [fileModalOpen, setFileModalOpen] = useState(false);
+
+  // Edit states
+  const [editingStation, setEditingStation] = useState<StationRead | null>(null);
+  const [editingRecord, setEditingRecord] = useState<RainfallRecordRead | null>(null);
+  const [editingFile, setEditingFile] = useState<S2SFileRead | null>(null);
+
+  // Forms
+  const stationForm = useForm<StationCreate>({
+    resolver: zodResolver(stationSchema),
+    defaultValues: {
+      station_name: "",
+      latitude: 0,
+      longitude: 0,
+      elevation: 0,
+      province: "",
     },
   });
 
-  const tableData = useMemo(() => {
-    const blankTableData = {
-      rows: [],
-      currentPage: 1,
-      totalItems: 0,
-      totalPages: 1,
-    };
-    if (listPrecipitationFilesQuery.isSuccess) {
-      const { data: rows, meta: { page: currentPage, total: totalItems, totalPages } } = listPrecipitationFilesQuery.data;
-      return { rows, currentPage, totalItems, totalPages };
-    }
+  const recordForm = useForm<RainfallRecordCreate>({
+    resolver: zodResolver(rainfallRecordSchema),
+    defaultValues: {
+      station_id: 0,
+      start_time: "",
+      end_time: "",
+      accumulated_rainfall: 0,
+      data_source: "observation",
+    },
+  });
 
-    return blankTableData;
-  }, [listPrecipitationFilesQuery.isSuccess, listPrecipitationFilesQuery.data]);
+  const fileForm = useForm<S2SFileCreate>({
+    resolver: zodResolver(s2sFileSchema),
+    defaultValues: {
+      file_path: "",
+    },
+  });
 
+  // Queries
+  const stationsQuery = useQuery({
+    queryKey: ["stations", stationsState],
+    queryFn: () => precipitationApi.stations.list({
+      page: stationsState.page,
+      limit: stationsState.itemsPerPage,
+      search: stationsState.search,
+    }),
+  });
+
+  const recordsQuery = useQuery({
+    queryKey: ["rainfall-records", recordsState],
+    queryFn: () => precipitationApi.rainfallRecords.list({
+      page: recordsState.page,
+      limit: recordsState.itemsPerPage,
+      search: recordsState.search,
+    }),
+  });
+
+  const filesQuery = useQuery({
+    queryKey: ["s2s-files", filesState],
+    queryFn: () => precipitationApi.s2sFiles.list({
+      page: filesState.page,
+      limit: filesState.itemsPerPage,
+      search: filesState.search,
+    }),
+  });
+
+  // Mutations
+  const createStationMutation = useMutation({
+    mutationFn: precipitationApi.stations.create,
+    onSuccess: () => {
+      notification.success({ message: "Station created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["stations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create station" }),
+  });
+
+  const updateStationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: StationUpdate }) =>
+      precipitationApi.stations.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "Station updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["stations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update station" }),
+  });
+
+  const deleteStationMutation = useMutation({
+    mutationFn: precipitationApi.stations.delete,
+    onSuccess: () => {
+      notification.success({ message: "Station deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["stations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete station" }),
+  });
+
+  // Rainfall Record mutations
+  const createRecordMutation = useMutation({
+    mutationFn: precipitationApi.rainfallRecords.create,
+    onSuccess: () => {
+      notification.success({ message: "Rainfall record created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["rainfall-records"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create rainfall record" }),
+  });
+
+  const updateRecordMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: RainfallRecordUpdate }) =>
+      precipitationApi.rainfallRecords.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "Rainfall record updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["rainfall-records"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update rainfall record" }),
+  });
+
+  const deleteRecordMutation = useMutation({
+    mutationFn: precipitationApi.rainfallRecords.delete,
+    onSuccess: () => {
+      notification.success({ message: "Rainfall record deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["rainfall-records"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete rainfall record" }),
+  });
+
+  // S2S File mutations
+  const createFileMutation = useMutation({
+    mutationFn: precipitationApi.s2sFiles.create,
+    onSuccess: () => {
+      notification.success({ message: "S2S file created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["s2s-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create S2S file" }),
+  });
+
+  const updateFileMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: S2SFileUpdate }) =>
+      precipitationApi.s2sFiles.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "S2S file updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["s2s-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update S2S file" }),
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: precipitationApi.s2sFiles.delete,
+    onSuccess: () => {
+      notification.success({ message: "S2S file deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["s2s-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete S2S file" }),
+  });
+
+  // Handle errors
   useEffect(() => {
-    if (listPrecipitationFilesQuery.isError) {
-      handleApiError(listPrecipitationFilesQuery.error, {
-        customMessage: "Failed to load precipitation files",
-      });
+    if (stationsQuery.isError) {
+      handleApiError(stationsQuery.error, { customMessage: "Failed to load stations" });
     }
-  }, [listPrecipitationFilesQuery.isError, listPrecipitationFilesQuery.error]);
+    if (recordsQuery.isError) {
+      handleApiError(recordsQuery.error, { customMessage: "Failed to load rainfall records" });
+    }
+    if (filesQuery.isError) {
+      handleApiError(filesQuery.error, { customMessage: "Failed to load S2S files" });
+    }
+  }, [stationsQuery.isError, stationsQuery.error, recordsQuery.isError, recordsQuery.error, filesQuery.isError, filesQuery.error]);
 
-  const deletePrecipitationFile = async (fileId: string) => {
-    try {
-      await mockApiService.delete(`/precipitation-files/delete`, {
-        params: { id: fileId },
-      });
-      notification.success({
-        message: "File deleted successfully",
-      });
-      // Refetch the files after deletion
-      listPrecipitationFilesQuery.refetch();
-    }
-    catch (error) {
-      handleApiError(error, {
-        customMessage: "Failed to delete file",
-      });
-    }
+  // Station columns
+  const stationColumns: TableColumn<StationRead>[] = [
+    { key: "station_name", header: "Station Name" },
+    { key: "province", header: "Province" },
+    { key: "latitude", header: "Latitude" },
+    { key: "longitude", header: "Longitude" },
+    { key: "elevation", header: "Elevation (m)" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // Rainfall record columns
+  const recordColumns: TableColumn<RainfallRecordRead>[] = [
+    { key: "station_id", header: "Station ID" },
+    {
+      key: "start_time",
+      header: "Start Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    {
+      key: "end_time",
+      header: "End Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    { key: "accumulated_rainfall", header: "Accumulated Rainfall (mm)" },
+    { key: "data_source", header: "Data Source" },
+  ];
+
+  // S2S file columns
+  const fileColumns: TableColumn<S2SFileRead>[] = [
+    { key: "s2s_id", header: "S2S ID" },
+    { key: "file_path", header: "File Path" },
+    {
+      key: "added_time",
+      header: "Added Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    {
+      key: "updated_time",
+      header: "Updated Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+  ];
+
+  // Handle station operations
+  const handleAddStation = () => {
+    setEditingStation(null);
+    stationForm.reset();
+    setStationModalOpen(true);
   };
 
-  const handleCreateOrUpload = () => {
-    // TODO: Implement create or upload functionality
-    notification.info({
-      message: "Create or upload functionality will be implemented",
+  const handleEditStation = (station: StationRead) => {
+    setEditingStation(station);
+    stationForm.reset(station);
+    setStationModalOpen(true);
+  };
+
+  const handleStationSubmit = async (data: StationCreate) => {
+    if (editingStation) {
+      await updateStationMutation.mutateAsync({ id: editingStation.station_id, data });
+    }
+    else {
+      await createStationMutation.mutateAsync(data);
+    }
+    setStationModalOpen(false);
+  };
+
+  const handleDeleteStation = (station: StationRead) => {
+    deleteStationMutation.mutate(station.station_id);
+  };
+
+  // Handle RainfallRecord operations
+  const handleAddRecord = () => {
+    setEditingRecord(null);
+    recordForm.reset();
+    setRecordModalOpen(true);
+  };
+
+  const handleEditRecord = (record: RainfallRecordRead) => {
+    setEditingRecord(record);
+    recordForm.reset({
+      station_id: record.station_id,
+      start_time: record.start_time,
+      end_time: record.end_time,
+      accumulated_rainfall: record.accumulated_rainfall,
+      data_source: record.data_source,
     });
+    setRecordModalOpen(true);
+  };
+
+  const handleRecordSubmit = async (data: RainfallRecordCreate) => {
+    if (editingRecord) {
+      await updateRecordMutation.mutateAsync({ id: editingRecord.station_id, data });
+    }
+    else {
+      await createRecordMutation.mutateAsync(data);
+    }
+    setRecordModalOpen(false);
+  };
+
+  const handleDeleteRecord = (record: RainfallRecordRead) => {
+    deleteRecordMutation.mutate(record.station_id);
+  };
+
+  // Handle S2SFile operations
+  const handleAddFile = () => {
+    setEditingFile(null);
+    fileForm.reset();
+    setFileModalOpen(true);
+  };
+
+  const handleEditFile = (file: S2SFileRead) => {
+    setEditingFile(file);
+    fileForm.reset({
+      file_path: file.file_path,
+    });
+    setFileModalOpen(true);
+  };
+
+  const handleFileSubmit = async (data: S2SFileCreate) => {
+    if (editingFile) {
+      await updateFileMutation.mutateAsync({ id: editingFile.s2s_id, data });
+    }
+    else {
+      await createFileMutation.mutateAsync(data);
+    }
+    setFileModalOpen(false);
+  };
+
+  const handleDeleteFile = (file: S2SFileRead) => {
+    deleteFileMutation.mutate(file.s2s_id);
+  };
+
+  // Transform data for tables
+  const stationsData = {
+    rows: stationsQuery.data?.data || [],
+    currentPage: stationsQuery.data?.meta.page || 1,
+    totalItems: stationsQuery.data?.meta.total || 0,
+    totalPages: stationsQuery.data?.meta.totalPages || 1,
+  };
+
+  const recordsData = {
+    rows: recordsQuery.data?.data || [],
+    currentPage: recordsQuery.data?.meta.page || 1,
+    totalItems: recordsQuery.data?.meta.total || 0,
+    totalPages: recordsQuery.data?.meta.totalPages || 1,
+  };
+
+  const filesData = {
+    rows: filesQuery.data?.data || [],
+    currentPage: filesQuery.data?.meta.page || 1,
+    totalItems: filesQuery.data?.meta.total || 0,
+    totalPages: filesQuery.data?.meta.totalPages || 1,
   };
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8 max-w-7xl mx-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="stations">Stations</TabsTrigger>
+          <TabsTrigger value="records">Rainfall Records</TabsTrigger>
+          <TabsTrigger value="files">S2S Files</TabsTrigger>
+        </TabsList>
 
-      {/* Header with Create/Upload Button */}
-      <div className="flex flex-row-reverse items-center mb-4">
-        <div className="relative w-64 hidden">
-          <Input
-            className="pl-10 pr-4 bg-[#f7f9fa] border rounded-full"
-            placeholder="Search"
-            value={tableInput.search}
-            onChange={(e) => { setTableInput(p => ({ ...p, search: e.target.value })); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setTableState(p => ({ ...p, page: 1, search: tableInput.search }));
-              }
-            }}
+        <TabsContent value="stations" className="mt-6">
+          <DataTable
+            data={stationsData}
+            columns={stationColumns}
+            tableState={stationsState}
+            tableInput={stationsInput}
+            onTableStateChange={changes => setStationsState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setStationsInput}
+            onAdd={handleAddStation}
+            onEdit={handleEditStation}
+            onDelete={handleDeleteStation}
+            addLabel="Add Station"
+            emptyMessage="No stations found"
+            showSearch={true}
+            isLoading={stationsQuery.isLoading}
+            getItemId={station => station.station_id.toString()}
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 6.5 6.5a7.5 7.5 0 0 0 10.6 10.6z" /></svg>
-          </span>
-        </div>
-        <Button onClick={handleCreateOrUpload} className="text-white rounded-full">
-          <PlusIcon className="mr-2" />
-          Create or Upload
-        </Button>
+        </TabsContent>
 
-      </div>
+        <TabsContent value="records" className="mt-6">
+          <DataTable
+            data={recordsData}
+            columns={recordColumns}
+            tableState={recordsState}
+            tableInput={recordsInput}
+            onTableStateChange={changes => setRecordsState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setRecordsInput}
+            onAdd={handleAddRecord}
+            onEdit={handleEditRecord}
+            onDelete={handleDeleteRecord}
+            addLabel="Add Record"
+            emptyMessage="No rainfall records found"
+            showSearch={true}
+            isLoading={recordsQuery.isLoading}
+            getItemId={record => record.station_id.toString()}
+          />
+        </TabsContent>
 
-      {/* Table */}
-      <div className="rounded-xl overflow-hidden">
-        <Table className="">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Modified</TableHead>
-              <TableHead>Modified by</TableHead>
-              <TableHead>File size</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tableData?.rows.map(row => (
-              <TableRow key={row.id} className="bg-white">
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{row.modifiedAt}</TableCell>
-                <TableCell>{row.modifiedBy}</TableCell>
-                <TableCell>{row.fileSize}</TableCell>
-                <TableCell className="flex justify-center items-center">
-                  <Button size="icon" variant="ghost" title="Download"><Icon path={mdiDownload} size={1} /></Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Delete"
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to delete this file?")) {
-                        deletePrecipitationFile(row.id);
-                      }
-                    }}
-                  >
-                    <Icon path={mdiDeleteOutline} size={1} />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {tableData?.rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-4">
-                  No precipitation files found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="files" className="mt-6">
+          <DataTable
+            data={filesData}
+            columns={fileColumns}
+            tableState={filesState}
+            tableInput={filesInput}
+            onTableStateChange={changes => setFilesState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setFilesInput}
+            onAdd={handleAddFile}
+            onEdit={handleEditFile}
+            onDelete={handleDeleteFile}
+            addLabel="Add File"
+            emptyMessage="No S2S files found"
+            showSearch={true}
+            isLoading={filesQuery.isLoading}
+            getItemId={file => file.s2s_id.toString()}
+          />
+        </TabsContent>
+      </Tabs>
 
-      {/* Pagination */}
-      <div className="flex justify-center items-center mt-6">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page > 1) {
-                    setTableState(p => ({ ...p, page: p.page - 1 }));
-                  }
-                }}
-                className={tableState.page === 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-            {Array.from({ length: tableData?.totalPages || 1 }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTableState(p => ({ ...p, page: i + 1 }));
-                  }}
-                  isActive={tableState.page === i + 1}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page < (tableData?.totalPages || 1)) {
-                    setTableState(p => ({ ...p, page: p.page + 1 }));
-                  }
-                }}
-                className={tableState.page === (tableData?.totalPages || 1) ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
+      {/* Station Form Modal */}
+      <FormModal
+        open={stationModalOpen}
+        onOpenChange={setStationModalOpen}
+        title={editingStation ? "Edit Station" : "Add Station"}
+        form={stationForm}
+        onSubmit={handleStationSubmit}
+        isLoading={createStationMutation.isPending || updateStationMutation.isPending}
+      >
+        <FormField
+          control={stationForm.control}
+          name="station_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Station Name *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Station name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stationForm.control}
+          name="province"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Province *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Province" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stationForm.control}
+          name="latitude"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Latitude *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Latitude"
+                  type="number"
+                  step="any"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stationForm.control}
+          name="longitude"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Longitude *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Longitude"
+                  type="number"
+                  step="any"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={stationForm.control}
+          name="elevation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Elevation (m) *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Elevation in meters"
+                  type="number"
+                  step="any"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* Rainfall Record Form Modal */}
+      <FormModal
+        open={recordModalOpen}
+        onOpenChange={setRecordModalOpen}
+        title={editingRecord ? "Edit Rainfall Record" : "Add Rainfall Record"}
+        form={recordForm}
+        onSubmit={handleRecordSubmit}
+        isLoading={createRecordMutation.isPending || updateRecordMutation.isPending}
+      >
+        <FormField
+          control={recordForm.control}
+          name="station_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Station ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Station ID"
+                  type="number"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={recordForm.control}
+          name="start_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start Time *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Start time" type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={recordForm.control}
+          name="end_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>End Time *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="End time" type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={recordForm.control}
+          name="accumulated_rainfall"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Accumulated Rainfall (mm) *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Accumulated rainfall in mm"
+                  type="number"
+                  step="any"
+                  onChange={e => field.onChange(e.target.valueAsNumber)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={recordForm.control}
+          name="data_source"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Data Source *</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select data source" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="observation">Observation</SelectItem>
+                  <SelectItem value="forecast">Forecast</SelectItem>
+                  <SelectItem value="analysis">Analysis</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* S2S File Form Modal */}
+      <FormModal
+        open={fileModalOpen}
+        onOpenChange={setFileModalOpen}
+        title={editingFile ? "Edit S2S File" : "Add S2S File"}
+        form={fileForm}
+        onSubmit={handleFileSubmit}
+        isLoading={createFileMutation.isPending || updateFileMutation.isPending}
+      >
+        <FormField
+          control={fileForm.control}
+          name="file_path"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>File Path *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="File path" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
     </div>
   );
 }

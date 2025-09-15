@@ -1,218 +1,818 @@
-import { Button } from "@/components/ui/button";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
+import { FormModal } from "@/components/shared/form-modal";
 import { handleApiError } from "@/lib/error-handle";
-import { mockApiService } from "@/services/mock-api.service";
-import { PaginatedResult } from "@/types/interfaces/pagination";
-import { mdiDeleteOutline, mdiDownload } from "@mdi/js";
-import Icon from "@mdi/react";
-import { useQuery } from "@tanstack/react-query";
+import { reservoirsApi } from "@/services/apis/reservoirs.api";
+import {
+  ReservoirRead,
+  ReservoirCreate,
+  ReservoirUpdate,
+  ReservoirOperationRead,
+  ReservoirOperationCreate,
+  ReservoirOperationUpdate,
+  ReservoirOperationFileRead,
+  ReservoirOperationFileCreate,
+  ReservoirOperationFileUpdate,
+} from "@/types/reservoirs";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
-import { PlusIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-interface RiverLevelFile {
-  id: string;
-  name: string;
-  modifiedAt: string;
-  modifiedBy: string;
-  fileSize: string;
-  createdAt: string;
-}
+// Form schemas
+const reservoirSchema = z.object({
+  reservoir_name: z.string().min(1, "Reservoir name is required"),
+  river: z.string().min(1, "River is required"),
+  province: z.string().min(1, "Province is required"),
+  capacity: z.number().min(0, "Capacity must be non-negative"),
+  elevation: z.number().min(0, "Elevation must be non-negative"),
+});
+
+const operationSchema = z.object({
+  reservoir_id: z.number().min(0, "Reservoir ID is required"),
+  timestamp: z.string().min(1, "Timestamp is required"),
+  water_level: z.number().min(0, "Water level must be non-negative"),
+  inflow: z.number().min(0, "Inflow must be non-negative"),
+  total_discharge: z.number().min(0, "Total discharge must be non-negative"),
+  turbine_discharge: z.number().min(0, "Turbine discharge must be non-negative"),
+  spillway_discharge: z.number().min(0, "Spillway discharge must be non-negative"),
+  num_bottom_gates: z.number().min(0, "Number of bottom gates must be non-negative"),
+  num_surface_gates: z.number().min(0, "Number of surface gates must be non-negative"),
+});
+
+const operationFileSchema = z.object({
+  reservoir_id: z.number().min(0, "Reservoir ID is required"),
+  file_path: z.string().min(1, "File path is required"),
+  from_time: z.string().min(1, "From time is required"),
+  to_time: z.string().min(1, "To time is required"),
+});
 
 export function RiveLevelPage() {
-  const [tableState, setTableState] = useState({
+  const [activeTab, setActiveTab] = useState("reservoirs");
+  const queryClient = useQueryClient();
+
+  // States for each tab
+  const [reservoirsState, setReservoirsState] = useState<TableState>({
     itemsPerPage: 10,
     page: 1,
     search: "",
   });
+  const [reservoirsInput, setReservoirsInput] = useState({ search: "" });
 
-  const [tableInput, setTableInput] = useState({
+  const [operationsState, setOperationsState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
     search: "",
   });
+  const [operationsInput, setOperationsInput] = useState({ search: "" });
 
-  const listRiverLevelFilesQuery = useQuery({
-    queryKey: ["/river-level-files", tableState],
-    queryFn: () => {
-      return mockApiService.get<PaginatedResult<RiverLevelFile>>(`/river-level-files`, {
-        params: {
-          limit: tableState.itemsPerPage,
-          page: tableState.page,
-          search: tableState.search,
-        },
-      });
+  const [filesState, setFilesState] = useState<TableState>({
+    itemsPerPage: 10,
+    page: 1,
+    search: "",
+  });
+  const [filesInput, setFilesInput] = useState({ search: "" });
+
+  // Modal states
+  const [reservoirModalOpen, setReservoirModalOpen] = useState(false);
+  const [operationModalOpen, setOperationModalOpen] = useState(false);
+  const [fileModalOpen, setFileModalOpen] = useState(false);
+
+  // Edit states
+  const [editingReservoir, setEditingReservoir] = useState<ReservoirRead | null>(null);
+  const [editingOperation, setEditingOperation] = useState<ReservoirOperationRead | null>(null);
+  const [editingFile, setEditingFile] = useState<ReservoirOperationFileRead | null>(null);
+
+  // Forms
+  const reservoirForm = useForm<ReservoirCreate>({
+    resolver: zodResolver(reservoirSchema),
+    defaultValues: {
+      reservoir_name: "",
+      river: "",
+      province: "",
+      capacity: 0,
+      elevation: 0,
     },
   });
 
-  const tableData = useMemo(() => {
-    const blankTableData = {
-      rows: [],
-      currentPage: 1,
-      totalItems: 0,
-      totalPages: 1,
-    };
-    if (listRiverLevelFilesQuery.isSuccess) {
-      const { data: rows, meta: { page: currentPage, total: totalItems, totalPages } } = listRiverLevelFilesQuery.data;
-      return { rows, currentPage, totalItems, totalPages };
-    }
+  const operationForm = useForm<ReservoirOperationCreate>({
+    resolver: zodResolver(operationSchema),
+    defaultValues: {
+      reservoir_id: 0,
+      timestamp: "",
+      water_level: 0,
+      inflow: 0,
+      total_discharge: 0,
+      turbine_discharge: 0,
+      spillway_discharge: 0,
+      num_bottom_gates: 0,
+      num_surface_gates: 0,
+    },
+  });
 
-    return blankTableData;
-  }, [listRiverLevelFilesQuery.isSuccess, listRiverLevelFilesQuery.data]);
+  const fileForm = useForm<ReservoirOperationFileCreate>({
+    resolver: zodResolver(operationFileSchema),
+    defaultValues: {
+      reservoir_id: 0,
+      file_path: "",
+      from_time: "",
+      to_time: "",
+    },
+  });
 
+  // Queries
+  const reservoirsQuery = useQuery({
+    queryKey: ["reservoirs", reservoirsState],
+    queryFn: () => reservoirsApi.reservoirs.list({
+      page: reservoirsState.page,
+      limit: reservoirsState.itemsPerPage,
+      search: reservoirsState.search,
+    }),
+  });
+
+  const operationsQuery = useQuery({
+    queryKey: ["reservoir-operations", operationsState],
+    queryFn: () => reservoirsApi.operations.list({
+      page: operationsState.page,
+      limit: operationsState.itemsPerPage,
+      search: operationsState.search,
+    }),
+  });
+
+  const filesQuery = useQuery({
+    queryKey: ["reservoir-operation-files", filesState],
+    queryFn: () => reservoirsApi.operationFiles.list({
+      page: filesState.page,
+      limit: filesState.itemsPerPage,
+      search: filesState.search,
+    }),
+  });
+
+  // Mutations
+  const createReservoirMutation = useMutation({
+    mutationFn: reservoirsApi.reservoirs.create,
+    onSuccess: () => {
+      notification.success({ message: "Reservoir created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoirs"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create reservoir" }),
+  });
+
+  const updateReservoirMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ReservoirUpdate }) =>
+      reservoirsApi.reservoirs.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "Reservoir updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoirs"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update reservoir" }),
+  });
+
+  const deleteReservoirMutation = useMutation({
+    mutationFn: reservoirsApi.reservoirs.delete,
+    onSuccess: () => {
+      notification.success({ message: "Reservoir deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoirs"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete reservoir" }),
+  });
+
+  // Operations mutations
+  const createOperationMutation = useMutation({
+    mutationFn: reservoirsApi.operations.create,
+    onSuccess: () => {
+      notification.success({ message: "Operation created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create operation" }),
+  });
+
+  const updateOperationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ReservoirOperationUpdate }) =>
+      reservoirsApi.operations.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "Operation updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update operation" }),
+  });
+
+  const deleteOperationMutation = useMutation({
+    mutationFn: reservoirsApi.operations.delete,
+    onSuccess: () => {
+      notification.success({ message: "Operation deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operations"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete operation" }),
+  });
+
+  // Files mutations
+  const createFileMutation = useMutation({
+    mutationFn: reservoirsApi.operationFiles.create,
+    onSuccess: () => {
+      notification.success({ message: "File created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operation-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to create file" }),
+  });
+
+  const updateFileMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ReservoirOperationFileUpdate }) =>
+      reservoirsApi.operationFiles.update(id, data),
+    onSuccess: () => {
+      notification.success({ message: "File updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operation-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to update file" }),
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: reservoirsApi.operationFiles.delete,
+    onSuccess: () => {
+      notification.success({ message: "File deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reservoir-operation-files"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to delete file" }),
+  });
+
+  // Handle errors
   useEffect(() => {
-    if (listRiverLevelFilesQuery.isError) {
-      handleApiError(listRiverLevelFilesQuery.error, {
-        customMessage: "Failed to load river level files",
-      });
+    if (reservoirsQuery.isError) {
+      handleApiError(reservoirsQuery.error, { customMessage: "Failed to load reservoirs" });
     }
-  }, [listRiverLevelFilesQuery.isError, listRiverLevelFilesQuery.error]);
+    if (operationsQuery.isError) {
+      handleApiError(operationsQuery.error, { customMessage: "Failed to load operations" });
+    }
+    if (filesQuery.isError) {
+      handleApiError(filesQuery.error, { customMessage: "Failed to load operation files" });
+    }
+  }, [reservoirsQuery.isError, reservoirsQuery.error, operationsQuery.isError, operationsQuery.error, filesQuery.isError, filesQuery.error]);
 
-  const deleteRiverLevelFile = async (fileId: string) => {
-    try {
-      await mockApiService.delete(`/river-level-files/delete`, {
-        params: { id: fileId },
-      });
-      notification.success({
-        message: "File deleted successfully",
-      });
-      // Refetch the files after deletion
-      listRiverLevelFilesQuery.refetch();
-    }
-    catch (error) {
-      handleApiError(error, {
-        customMessage: "Failed to delete file",
-      });
-    }
+  // Reservoir columns
+  const reservoirColumns: TableColumn<ReservoirRead>[] = [
+    { key: "reservoir_name", header: "Reservoir Name" },
+    { key: "river", header: "River" },
+    { key: "province", header: "Province" },
+    { key: "capacity", header: "Capacity" },
+    { key: "elevation", header: "Elevation (m)" },
+    {
+      key: "created_at",
+      header: "Created",
+      render: value => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+  ];
+
+  // Operation columns
+  const operationColumns: TableColumn<ReservoirOperationRead>[] = [
+    { key: "reservoir_id", header: "Reservoir ID" },
+    {
+      key: "timestamp",
+      header: "Timestamp",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    { key: "water_level", header: "Water Level (m)" },
+    { key: "inflow", header: "Inflow (m³/s)" },
+    { key: "total_discharge", header: "Total Discharge (m³/s)" },
+    { key: "turbine_discharge", header: "Turbine Discharge (m³/s)" },
+    { key: "spillway_discharge", header: "Spillway Discharge (m³/s)" },
+    { key: "num_bottom_gates", header: "Bottom Gates" },
+    { key: "num_surface_gates", header: "Surface Gates" },
+  ];
+
+  // File columns
+  const fileColumns: TableColumn<ReservoirOperationFileRead>[] = [
+    { key: "reservoir_id", header: "Reservoir ID" },
+    { key: "file_path", header: "File Path" },
+    {
+      key: "from_time",
+      header: "From Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    {
+      key: "to_time",
+      header: "To Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+    {
+      key: "added_time",
+      header: "Added Time",
+      render: value => value ? new Date(value).toLocaleString() : "N/A",
+    },
+  ];
+
+  // Handle reservoir operations
+  const handleAddReservoir = () => {
+    setEditingReservoir(null);
+    reservoirForm.reset();
+    setReservoirModalOpen(true);
   };
 
-  const handleCreateOrUpload = () => {
-    // TODO: Implement create or upload functionality
-    notification.info({
-      message: "Create or upload functionality will be implemented",
+  const handleEditReservoir = (reservoir: ReservoirRead) => {
+    setEditingReservoir(reservoir);
+    reservoirForm.reset(reservoir);
+    setReservoirModalOpen(true);
+  };
+
+  const handleReservoirSubmit = async (data: ReservoirCreate) => {
+    if (editingReservoir) {
+      await updateReservoirMutation.mutateAsync({ id: editingReservoir.reservoir_id, data });
+    }
+    else {
+      await createReservoirMutation.mutateAsync(data);
+    }
+    setReservoirModalOpen(false);
+  };
+
+  const handleDeleteReservoir = (reservoir: ReservoirRead) => {
+    deleteReservoirMutation.mutate(reservoir.reservoir_id);
+  };
+
+  // Handle operation operations
+  const handleAddOperation = () => {
+    setEditingOperation(null);
+    operationForm.reset();
+    setOperationModalOpen(true);
+  };
+
+  const handleEditOperation = (operation: ReservoirOperationRead) => {
+    setEditingOperation(operation);
+    operationForm.reset({
+      reservoir_id: operation.reservoir_id,
+      timestamp: operation.timestamp,
+      water_level: operation.water_level,
+      inflow: operation.inflow,
+      total_discharge: operation.total_discharge,
+      turbine_discharge: operation.turbine_discharge,
+      spillway_discharge: operation.spillway_discharge,
+      num_bottom_gates: operation.num_bottom_gates,
+      num_surface_gates: operation.num_surface_gates,
     });
+    setOperationModalOpen(true);
+  };
+
+  const handleOperationSubmit = async (data: ReservoirOperationCreate) => {
+    if (editingOperation) {
+      await updateOperationMutation.mutateAsync({ id: editingOperation.reservoir_id, data });
+    }
+    else {
+      await createOperationMutation.mutateAsync(data);
+    }
+    setOperationModalOpen(false);
+  };
+
+  const handleDeleteOperation = (operation: ReservoirOperationRead) => {
+    deleteOperationMutation.mutate(operation.reservoir_id);
+  };
+
+  // Handle file operations
+  const handleAddFile = () => {
+    setEditingFile(null);
+    fileForm.reset();
+    setFileModalOpen(true);
+  };
+
+  const handleEditFile = (file: ReservoirOperationFileRead) => {
+    setEditingFile(file);
+    fileForm.reset({
+      reservoir_id: file.reservoir_id,
+      file_path: file.file_path,
+      from_time: file.from_time,
+      to_time: file.to_time,
+    });
+    setFileModalOpen(true);
+  };
+
+  const handleFileSubmit = async (data: ReservoirOperationFileCreate) => {
+    if (editingFile) {
+      await updateFileMutation.mutateAsync({ id: editingFile.reservoir_id, data });
+    }
+    else {
+      await createFileMutation.mutateAsync(data);
+    }
+    setFileModalOpen(false);
+  };
+
+  const handleDeleteFile = (file: ReservoirOperationFileRead) => {
+    deleteFileMutation.mutate(file.reservoir_id);
+  };
+
+  // Transform data for tables
+  const reservoirsData = {
+    rows: reservoirsQuery.data?.data || [],
+    currentPage: reservoirsQuery.data?.meta.page || 1,
+    totalItems: reservoirsQuery.data?.meta.total || 0,
+    totalPages: reservoirsQuery.data?.meta.totalPages || 1,
+  };
+
+  const operationsData = {
+    rows: operationsQuery.data?.data || [],
+    currentPage: operationsQuery.data?.meta.page || 1,
+    totalItems: operationsQuery.data?.meta.total || 0,
+    totalPages: operationsQuery.data?.meta.totalPages || 1,
+  };
+
+  const filesData = {
+    rows: filesQuery.data?.data || [],
+    currentPage: filesQuery.data?.meta.page || 1,
+    totalItems: filesQuery.data?.meta.total || 0,
+    totalPages: filesQuery.data?.meta.totalPages || 1,
   };
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8 max-w-7xl mx-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="reservoirs">Reservoirs</TabsTrigger>
+          <TabsTrigger value="operations">Operations</TabsTrigger>
+          <TabsTrigger value="files">Operation Files</TabsTrigger>
+        </TabsList>
 
-      {/* Header with Create/Upload Button */}
-      <div className="flex flex-row-reverse items-center mb-4">
-        <div className="relative w-64 hidden">
-          <Input
-            className="pl-10 pr-4 bg-[#f7f9fa] border rounded-full"
-            placeholder="Search"
-            value={tableInput.search}
-            onChange={(e) => { setTableInput(p => ({ ...p, search: e.target.value })); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setTableState(p => ({ ...p, page: 1, search: tableInput.search }));
-              }
-            }}
+        <TabsContent value="reservoirs" className="mt-6">
+          <DataTable
+            data={reservoirsData}
+            columns={reservoirColumns}
+            tableState={reservoirsState}
+            tableInput={reservoirsInput}
+            onTableStateChange={changes => setReservoirsState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setReservoirsInput}
+            onAdd={handleAddReservoir}
+            onEdit={handleEditReservoir}
+            onDelete={handleDeleteReservoir}
+            addLabel="Add Reservoir"
+            emptyMessage="No reservoirs found"
+            showSearch={true}
+            isLoading={reservoirsQuery.isLoading}
+            getItemId={reservoir => reservoir.reservoir_id.toString()}
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 6.5 6.5a7.5 7.5 0 0 0 10.6 10.6z" /></svg>
-          </span>
-        </div>
-        <Button onClick={handleCreateOrUpload} className="text-white rounded-full">
-          <PlusIcon className="mr-2" />
-          Create or Upload
-        </Button>
+        </TabsContent>
 
-      </div>
+        <TabsContent value="operations" className="mt-6">
+          <DataTable
+            data={operationsData}
+            columns={operationColumns}
+            tableState={operationsState}
+            tableInput={operationsInput}
+            onTableStateChange={changes => setOperationsState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setOperationsInput}
+            onAdd={handleAddOperation}
+            onEdit={handleEditOperation}
+            onDelete={handleDeleteOperation}
+            addLabel="Add Operation"
+            emptyMessage="No operations found"
+            showSearch={true}
+            isLoading={operationsQuery.isLoading}
+            getItemId={operation => operation.reservoir_id.toString()}
+          />
+        </TabsContent>
 
-      {/* Table */}
-      <div className="rounded-xl overflow-hidden">
-        <Table className="">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Modified</TableHead>
-              <TableHead>Modified by</TableHead>
-              <TableHead>File size</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tableData?.rows.map(row => (
-              <TableRow key={row.id} className="bg-white">
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{row.modifiedAt}</TableCell>
-                <TableCell>{row.modifiedBy}</TableCell>
-                <TableCell>{row.fileSize}</TableCell>
-                <TableCell className="flex justify-center items-center">
-                  <Button size="icon" variant="ghost" title="Download"><Icon path={mdiDownload} size={1} /></Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Delete"
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to delete this file?")) {
-                        deleteRiverLevelFile(row.id);
-                      }
-                    }}
-                  >
-                    <Icon path={mdiDeleteOutline} size={1} />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {tableData?.rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-4">
-                  No river level files found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="files" className="mt-6">
+          <DataTable
+            data={filesData}
+            columns={fileColumns}
+            tableState={filesState}
+            tableInput={filesInput}
+            onTableStateChange={changes => setFilesState(prev => ({ ...prev, ...changes }))}
+            onTableInputChange={setFilesInput}
+            onAdd={handleAddFile}
+            onEdit={handleEditFile}
+            onDelete={handleDeleteFile}
+            addLabel="Add File"
+            emptyMessage="No operation files found"
+            showSearch={true}
+            isLoading={filesQuery.isLoading}
+            getItemId={file => file.reservoir_id.toString()}
+          />
+        </TabsContent>
+      </Tabs>
 
-      {/* Pagination */}
-      <div className="flex justify-center items-center mt-6">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page > 1) {
-                    setTableState(p => ({ ...p, page: p.page - 1 }));
-                  }
-                }}
-                className={tableState.page === 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-            {Array.from({ length: tableData?.totalPages || 1 }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTableState(p => ({ ...p, page: i + 1 }));
-                  }}
-                  isActive={tableState.page === i + 1}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (tableState.page < (tableData?.totalPages || 1)) {
-                    setTableState(p => ({ ...p, page: p.page + 1 }));
-                  }
-                }}
-                className={tableState.page === (tableData?.totalPages || 1) ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
+      {/* Reservoir Form Modal */}
+      <FormModal
+        open={reservoirModalOpen}
+        onOpenChange={setReservoirModalOpen}
+        title={editingReservoir ? "Edit Reservoir" : "Add Reservoir"}
+        form={reservoirForm}
+        onSubmit={handleReservoirSubmit}
+        isLoading={createReservoirMutation.isPending || updateReservoirMutation.isPending}
+      >
+        <FormField
+          control={reservoirForm.control}
+          name="reservoir_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reservoir Name *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Reservoir name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={reservoirForm.control}
+          name="river"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>River</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="River name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={reservoirForm.control}
+          name="province"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Province</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Province name" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={reservoirForm.control}
+          name="capacity"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Capacity (m³)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Total capacity"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={reservoirForm.control}
+          name="elevation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Elevation (m)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Elevation above sea level"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* Operation Modal */}
+      <FormModal
+        title={editingOperation ? "Edit Operation" : "Add Operation"}
+        open={operationModalOpen}
+        onOpenChange={setOperationModalOpen}
+        onSubmit={handleOperationSubmit}
+        form={operationForm}
+      >
+        <FormField
+          control={operationForm.control}
+          name="reservoir_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reservoir ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Reservoir ID"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="timestamp"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Timestamp *</FormLabel>
+              <FormControl>
+                <Input {...field} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="water_level"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Water Level (m)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  step="0.01"
+                  placeholder="Water level"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="inflow"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Inflow (m³/s)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  step="0.01"
+                  placeholder="Inflow rate"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="total_discharge"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Total Discharge (m³/s)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  step="0.01"
+                  placeholder="Total discharge"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="turbine_discharge"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Turbine Discharge (m³/s)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  step="0.01"
+                  placeholder="Turbine discharge"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="spillway_discharge"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Spillway Discharge (m³/s)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  step="0.01"
+                  placeholder="Spillway discharge"
+                  onChange={e => field.onChange(Number.parseFloat(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="num_bottom_gates"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Number of Bottom Gates</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Number of bottom gates"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={operationForm.control}
+          name="num_surface_gates"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Number of Surface Gates</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Number of surface gates"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
+
+      {/* File Modal */}
+      <FormModal
+        title={editingFile ? "Edit File" : "Add File"}
+        open={fileModalOpen}
+        onOpenChange={setFileModalOpen}
+        onSubmit={handleFileSubmit}
+        form={fileForm}
+      >
+        <FormField
+          control={fileForm.control}
+          name="reservoir_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reservoir ID *</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="Reservoir ID"
+                  onChange={e => field.onChange(Number.parseInt(e.target.value) || undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="file_path"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>File Path *</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Path to operation file" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="from_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>From Time *</FormLabel>
+              <FormControl>
+                <Input {...field} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={fileForm.control}
+          name="to_time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>To Time *</FormLabel>
+              <FormControl>
+                <Input {...field} type="datetime-local" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </FormModal>
     </div>
   );
 }

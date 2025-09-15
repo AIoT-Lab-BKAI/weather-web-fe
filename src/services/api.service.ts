@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 
 import { env } from "@/config/env.client";
 import { LS_KEY_ACCESS_TOKEN } from "@/constants/ls-key.constant";
+import { PaginatedResult } from "@/types/interfaces/pagination";
 
 const axiosInstance = axios.create({
   baseURL: env.VITE_APP_API_URL,
@@ -26,10 +27,14 @@ axiosInstance.interceptors.request.use((config) => {
 });
 
 export class ApiService {
-  constructor(protected axiosInstance: AxiosInstance) {}
+  constructor(protected axiosInstance: AxiosInstance) { }
 
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.extractDataFromResponse(this.axiosInstance.get<T>(url, config));
+    const data = await this.extractDataFromResponse(this.axiosInstance.get<T>(url, config));
+    if (this.isPaginatedResponse(data)) {
+      return this.extractPaginationMetaFromResponse(data) as T;
+    }
+    return data;
   }
 
   async post<T = unknown>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
@@ -51,6 +56,29 @@ export class ApiService {
   private async extractDataFromResponse<T>(responsePromise: Promise<AxiosResponse<T>>): Promise<T> {
     const { data } = await responsePromise;
     return data;
+  }
+
+  private isPaginatedResponse(data: any): data is PaginatedResult {
+    return data !== null
+      && typeof data === "object"
+      && !Array.isArray(data)
+      && "page" in data
+      && "itemsPerPage" in data
+      && "total" in data
+      && "items" in data;
+  }
+
+  private extractPaginationMetaFromResponse(data: any): PaginatedResult {
+    const { page, itemsPerPage, total, items } = data;
+    const totalPages = Math.ceil(total / itemsPerPage);
+    return {
+      meta: {
+        page,
+        total,
+        totalPages,
+      },
+      data: items,
+    };
   }
 }
 
