@@ -1,17 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import { useWeatherMapLayout } from "../context";
 
-import Icon from "@mdi/react";
 import {
+  mdiAccountKeyOutline,
   mdiChevronUp,
   mdiCompassOutline,
-  mdiWeatherHurricaneOutline,
   mdiThermometerLines,
-  mdiWavesArrowUp,
   mdiWaterPercent,
+  mdiWavesArrowUp,
+  mdiWeatherHurricaneOutline,
   mdiWeatherPouring,
   mdiWeatherWindy,
 } from "@mdi/js";
+import Icon from "@mdi/react";
 
 const menuItems = [
   {
@@ -36,6 +37,11 @@ const menuItems = [
     to: "/weather-map/pressure",
     label: "Pressure",
     iconPath: mdiCompassOutline,
+  },
+  {
+    to: "/admin",
+    label: "Go to Admin",
+    iconPath: mdiAccountKeyOutline,
   },
 ];
 

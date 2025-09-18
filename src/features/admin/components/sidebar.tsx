@@ -1,6 +1,6 @@
 import { WeatherLogo } from "@/components/logos/weather-logo";
 import { cn } from "@/lib/utils";
-import { mdiWavesArrowUp, mdiWeatherHurricaneOutline, mdiWeatherPouring } from "@mdi/js";
+import { mdiMapLegend, mdiWavesArrowUp, mdiWeatherHurricaneOutline, mdiWeatherPouring } from "@mdi/js";
 import Icon from "@mdi/react";
 import { Link, LinkComponentProps } from "@tanstack/react-router";
 import clsx from "clsx";
@@ -72,6 +72,8 @@ export function Sidebar() {
           <WeatherLogo className={cn("h-40 w-40", sidebarCollapsed && "h-10 w-10")} />
           <h3 className={cn("text-center text-3xl", sidebarCollapsed && "hidden")}>Weather</h3>
         </div>
+        <NavigationItem label="Go to Weather Map" icon={<Icon path={mdiMapLegend} size={1} />} to="/weather-map" />
+        <hr />
 
         {/* Top navigation */}
         <nav>
