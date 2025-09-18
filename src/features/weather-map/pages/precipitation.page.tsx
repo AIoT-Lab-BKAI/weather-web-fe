@@ -8,11 +8,11 @@ import ReactDOM from "react-dom";
 import { ChartData, LevelData, StationInfo } from "../types";
 import { useWeatherMapLayout } from "../context";
 import { precipitationApi } from "@/services/apis/precipitation.api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { StationRead, RainfallRecordRead } from "@/types/precipitation";
 
 export function PrecipitationPage() {
-  const { selectedStation, setSelectedStation, selectedDate, sliderValue: selectedHour } = useWeatherMapLayout();
+  const { selectedStation, setSelectedStation, selectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
   const [stations, setStations] = useState<StationInfo[]>([]);
   const [rainfallData, setRainfallData] = useState<LevelData[]>([]);
   const [stationDailyRecords, setStationDailyRecords] = useState<Map<number, RainfallRecordRead[]>>(() => new Map());
@@ -204,6 +204,16 @@ export function PrecipitationPage() {
   const handlePanelClose = () => {
     setSelectedStation(null);
   };
+
+  useEffect(() => {
+    setSliderMarks({
+      0: "0h",
+      6: "6h",
+      12: "12h",
+      18: "18h",
+      23: "23h",
+    });
+  }, []);
 
   // Show loading state
   if (loading) {

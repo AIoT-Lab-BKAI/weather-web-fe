@@ -1,69 +1,19 @@
-import Icon from "@mdi/react";
-import { mdiWeatherHurricaneOutline } from "@mdi/js";
-import L from "leaflet";
-import { Circle, Marker, Polyline, Tooltip } from "react-leaflet";
-import ReactDOMServer from "react-dom/server";
-import React, { useEffect, useState } from "react";
+import { formatTimestamp } from "@/lib/date-time";
 import { stormsApi } from "@/services/apis/storms.api";
 import { StormLifecycleRead } from "@/types/storms";
+import { mdiWeatherHurricaneOutline } from "@mdi/js";
+import Icon from "@mdi/react";
+import dayjs from "dayjs";
+import L from "leaflet";
+import React, { useEffect, useState } from "react";
+import ReactDOMServer from "react-dom/server";
+import { Circle, Marker, Polyline, Tooltip } from "react-leaflet";
 import { useWeatherMapLayout } from "../context";
 
 interface CyclonePoint extends StormLifecycleRead {
   status: "past" | "forecast";
   radius: number;
 }
-
-const CycloneTooltipContent: React.FC<{ point: CyclonePoint }> = ({
-  point,
-}) => {
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).replace(",", "");
-  };
-
-  return (
-    <div className="cyclone-tooltip-content relative flex flex-col items-start p-2 gap-2 w-[102px] bg-white/70 backdrop-blur-sm rounded-lg text-black text-xs font-normal">
-      <div className="w-full">
-        <span>
-          Lat:
-          {point.latitude.toFixed(1)}
-          °N
-        </span>
-        <hr className="border-t-[0.5px] border-gray-300 mt-2" />
-      </div>
-      <div className="w-full">
-        <span>
-          Lon:
-          {point.longitude.toFixed(1)}
-          °E
-        </span>
-        <hr className="border-t-[0.5px] border-gray-300 mt-2" />
-      </div>
-      <div className="w-full">
-        <span>
-          Time:
-          {formatTimestamp(point.timestamp)}
-        </span>
-        <hr className="border-t-[0.5px] border-gray-300 mt-2" />
-      </div>
-      <div className="w-full">
-        <span>
-          Intensity:
-          {point.intensity}
-          {" "}
-          km/h
-        </span>
-      </div>
-    </div>
-  );
-};
 
 function createCycloneIcon(status: "past" | "forecast") {
   const iconHtml = ReactDOMServer.renderToString(
@@ -94,79 +44,30 @@ function createCycloneIcon(status: "past" | "forecast") {
 export function TropicalCyclonePage() {
   const [cycloneData, setCycloneData] = useState<CyclonePoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const { selectedDate, sliderValue: selectedHour } = useWeatherMapLayout();
+  const { selectedDate, setSelectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
+  const [data, setData] = useState<StormLifecycleRead[]>([]);
 
   useEffect(() => {
     const fetchCycloneData = async () => {
       try {
         setLoading(true);
-        const response = await stormsApi.stormLifecycle.list();
+        const storms = await stormsApi.storms.list();
+        const storm = storms.data[storms.data.length - 1];
 
-        // Sort by timestamp to determine timeline
-        const sortedData = response.data.sort((a: StormLifecycleRead, b: StormLifecycleRead) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-        );
-
-        const data = sortedData;
-
-        // Determine the reference time based on selectedDate and selectedHour
-        let referenceTime: Date;
-        if (selectedDate) {
-          referenceTime = new Date(selectedDate);
-          referenceTime.setHours(selectedHour, 0, 0, 0);
-        }
-        else {
-          referenceTime = new Date();
-        }
-
-        // Transform data and determine status
-        const transformedData: CyclonePoint[] = data.map((item: StormLifecycleRead, index: number) => {
-          const timestamp = new Date(item.timestamp);
-          const isForecast = timestamp > referenceTime;
-
-          // Calculate radius for forecast points with increment
-          let radius = 0;
-          if (isForecast) {
-            // Base radius of 50km, increasing by 20km for each subsequent forecast point
-            const forecastIndex = data.slice(0, index + 1).filter((d: StormLifecycleRead) =>
-              new Date(d.timestamp) > referenceTime,
-            ).length;
-            radius = 10000 + (forecastIndex - 1) * 5000;
-          }
-
-          return {
-            ...item,
-            status: isForecast ? "forecast" : "past",
-            radius,
-          };
+        const stormLifecycles = await stormsApi.stormLifecycle.list({
+          storm_id: storm.storm_id,
         });
 
-        // Filter data based on selected time frame
-        // Show past points up to the reference time and forecast points after
-        const filteredData = transformedData.filter((item: CyclonePoint) => {
-          const itemTime = new Date(item.timestamp);
-
-          if (!selectedDate) {
-            // If no date is selected, show current position and forecasts
-            return itemTime <= referenceTime || item.status === "forecast";
-          }
-
-          if (item.status === "past") {
-            // Show past points that are close to the reference time (within a reasonable range)
-            // This helps show the cyclone's path leading up to the selected time
-            return itemTime <= referenceTime;
-          }
-          else {
-            // Show forecast points after the reference time
-            return itemTime > referenceTime;
-          }
+        const data = stormLifecycles.data.sort((a, b) => {
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
         });
 
-        setCycloneData(filteredData);
+        const lastDay = dayjs(data[data.length - 1].timestamp);
+        setSelectedDate(lastDay.toDate());
+        setData(data);
       }
       catch (error) {
         console.error("Error fetching cyclone data:", error);
-        setCycloneData([]);
       }
       finally {
         setLoading(false);
@@ -174,7 +75,77 @@ export function TropicalCyclonePage() {
     };
 
     fetchCycloneData();
-  }, [selectedDate, selectedHour]);
+  }, []);
+
+  useEffect(() => {
+    if (data.length === 0)
+      return;
+
+    const sliderMarks = data.filter((item: StormLifecycleRead) => {
+      return dayjs(item.timestamp).isSame(selectedDate, "day");
+    }).reduce((marks: Record<number, string>, item: StormLifecycleRead) => {
+      const hours = dayjs(item.timestamp).hour();
+      marks[hours] = `${hours}:00`;
+      return marks;
+    }, {});
+
+    setSliderMarks(sliderMarks);
+
+    // Determine the reference time based on selectedDate and selectedHour
+    let referenceTime: Date;
+    if (selectedDate) {
+      referenceTime = new Date(selectedDate);
+      referenceTime.setHours(selectedHour, 0, 0, 0);
+    }
+    else {
+      referenceTime = new Date();
+    }
+
+    // Transform data and determine status
+    const transformedData: CyclonePoint[] = data.map((item: StormLifecycleRead, index: number) => {
+      const timestamp = new Date(item.timestamp);
+      const isForecast = timestamp > referenceTime;
+
+      // Calculate radius for forecast points with increment
+      let radius = 0;
+      if (isForecast) {
+        // Base radius of 50km, increasing by 20km for each subsequent forecast point
+        const forecastIndex = data.slice(0, index + 1).filter((d: StormLifecycleRead) =>
+          new Date(d.timestamp) > referenceTime,
+        ).length;
+        radius = Math.min(12000 + (forecastIndex - 1) * 6000, 80000);
+      }
+
+      return {
+        ...item,
+        status: isForecast ? "forecast" : "past",
+        radius,
+      };
+    });
+
+    // Filter data based on selected time frame
+    // Show past points up to the reference time and forecast points after
+    const filteredData = transformedData.filter((item: CyclonePoint) => {
+      const itemTime = new Date(item.timestamp);
+
+      if (!selectedDate) {
+        // If no date is selected, show current position and forecasts
+        return itemTime <= referenceTime || item.status === "forecast";
+      }
+
+      if (item.status === "past") {
+        // Show past points that are close to the reference time (within a reasonable range)
+        // This helps show the cyclone's path leading up to the selected time
+        return itemTime <= referenceTime;
+      }
+      else {
+        // Show forecast points after the reference time
+        return itemTime > referenceTime;
+      }
+    });
+
+    setCycloneData(filteredData);
+  }, [data, selectedDate, selectedHour, setSelectedDate, setSliderMarks]);
 
   if (loading) {
     return null; // Or loading spinner
@@ -232,7 +203,45 @@ export function TropicalCyclonePage() {
               permanent={false}
               className="cyclone-tooltip"
             >
-              <CycloneTooltipContent point={point} />
+              <div className="cyclone-tooltip-content relative flex flex-col items-start p-2 gap-2 bg-white/70 backdrop-blur-sm rounded-lg text-black text-xs font-normal">
+                <div className="w-full">
+                  <span>
+                    <b>Lat:</b>
+                    &nbsp;
+                    {point.latitude.toFixed(3)}
+                    &nbsp;
+                    <i>°N</i>
+                  </span>
+                  <hr className="border-t-[0.5px] border-gray-300 mt-2" />
+                </div>
+                <div className="w-full">
+                  <span>
+                    <b>Lon:</b>
+                    &nbsp;
+                    {point.longitude.toFixed(3)}
+                    &nbsp;
+                    <i>°E</i>
+                  </span>
+                  <hr className="border-t-[0.5px] border-gray-300 mt-2" />
+                </div>
+                <div className="w-full">
+                  <span>
+                    <b>Time:</b>
+                    &nbsp;
+                    {formatTimestamp(point.timestamp)}
+                  </span>
+                  <hr className="border-t-[0.5px] border-gray-300 mt-2" />
+                </div>
+                <div className="w-full">
+                  <span>
+                    <b>Intensity:</b>
+                    &nbsp;
+                    {point.intensity}
+                    &nbsp;
+                    <i>km/h</i>
+                  </span>
+                </div>
+              </div>
             </Tooltip>
           </Marker>
         </React.Fragment>

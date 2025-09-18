@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useMemo, useState, use } from "react";
 import { StationInfo } from "./types";
+import { SliderMarks } from "antd/es/slider";
 
 export interface WeatherMapLayoutContextType {
   // Sidebar state
@@ -29,12 +30,15 @@ export interface WeatherMapLayoutContextType {
   setMapZoom: (zoom: number) => void;
 
   // Timeline
-  sliderValue: number;
-  setSliderValue: (value: number) => void;
+  selectedHour: number;
+  setSelectedHour: (value: number) => void;
 
   // Date
   selectedDate: Date | null;
   setSelectedDate: (date: Date | null) => void;
+
+  sliderMarks: SliderMarks;
+  setSliderMarks: (markers: SliderMarks) => void;
 }
 
 export const WeatherMapLayoutContext = createContext<WeatherMapLayoutContextType | undefined>(undefined);
@@ -59,10 +63,10 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
   const [mapZoom, setMapZoom] = useState<number>(5.5);
 
   // Timeline
-  const [sliderValue, setSliderValue] = useState<number>(0);
-
-  // Date
+  const [selectedHour, setSelectedHour] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
+  const [sliderMarks, setSliderMarks] = useState<SliderMarks>({});
+
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
   };
@@ -85,10 +89,12 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       setMapCenter,
       mapZoom,
       setMapZoom,
-      sliderValue,
-      setSliderValue,
+      selectedHour,
+      setSelectedHour,
       selectedDate,
       setSelectedDate,
+      sliderMarks,
+      setSliderMarks,
     }),
     [
       sidebarCollapsed,
@@ -99,8 +105,9 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       headerTitle,
       mapCenter,
       mapZoom,
-      sliderValue,
+      selectedHour,
       selectedDate,
+      sliderMarks,
     ],
   );
 

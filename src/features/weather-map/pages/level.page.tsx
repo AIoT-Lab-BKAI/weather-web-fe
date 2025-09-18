@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { ReservoirRead, ReservoirOperationRead } from "@/types/reservoirs";
 
 export function LevelPage() {
-  const { selectedStation, setSelectedStation, selectedDate, sliderValue: selectedHour } = useWeatherMapLayout();
+  const { selectedStation, setSelectedStation, selectedDate, selectedHour } = useWeatherMapLayout();
   const [stations, setStations] = useState<StationInfo[]>([]);
   const [levelData, setLevelData] = useState<LevelData[]>([]);
   const [reservoirOperations, setReservoirOperations] = useState<Map<number, ReservoirOperationRead[]>>(() => new Map());
