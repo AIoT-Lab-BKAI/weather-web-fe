@@ -62,7 +62,7 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
   const [sliderValue, setSliderValue] = useState<number>(0);
 
   // Date
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
   };
