@@ -6,7 +6,7 @@ import { mdiWaterOutline } from "@mdi/js";
 import { StationInfoPanel } from "../components/station-info-panel";
 import ReactDOM from "react-dom";
 import { ChartData, LevelData, StationInfo } from "../types";
-import { useLayoutContext } from "../layout";
+import { useWeatherMapLayout } from "../context";
 
 const mockStations: StationInfo[] = [
   {
@@ -72,9 +72,9 @@ const levelData: LevelData[] = [
   },
 ];
 
-const createLevelIcon = () => {
+function createLevelIcon() {
   const iconHtml = ReactDOMServer.renderToString(
-    <Icon path={mdiWaterOutline} size={0.8} color="white" />
+    <Icon path={mdiWaterOutline} size={0.8} color="white" />,
   );
   return L.divIcon({
     html: `
@@ -97,10 +97,10 @@ const createLevelIcon = () => {
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
-};
+}
 
 export function LevelPage() {
-  const { selectedStation, setSelectedStation } = useLayoutContext();
+  const { selectedStation, setSelectedStation } = useWeatherMapLayout();
 
   const handleMarkerClick = (station: StationInfo) => {
     setSelectedStation(station);
@@ -112,7 +112,7 @@ export function LevelPage() {
 
   return (
     <>
-      {mockStations.map((station) => (
+      {mockStations.map(station => (
         <Marker
           key={station.id}
           position={[station.lat, station.lng]}
@@ -136,7 +136,7 @@ export function LevelPage() {
             onClose={handlePanelClose}
           />
         </div>,
-        document.body
+        document.body,
       )}
     </>
   );

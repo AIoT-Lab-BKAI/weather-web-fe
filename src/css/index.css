@@ -254,3 +254,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+.leaflet-interactive.no-overlap-fill {
+  mix-blend-mode: multiply;  /* hoặc lighten, screen tuỳ nhu cầu */
+}

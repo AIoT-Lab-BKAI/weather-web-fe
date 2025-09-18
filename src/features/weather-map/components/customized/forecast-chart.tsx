@@ -9,26 +9,22 @@ interface ForecastChartProps {
 }
 
 export function ForecastChart({ title, data, color }: ForecastChartProps) {
-  const ChartHeader = () => (
-    <div className="flex justify-between items-center w-full">
-      <div className="relative pb-2">
-        <h3 className="text-base font-semibold text-black">{title}</h3>
-        <div
-          className="absolute bottom-0 left-0 w-8 h-[3px] rounded-full"
-          style={{ backgroundColor: color }}
-        />
-      </div>
-      <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
-        <Icon path={mdiDownload} size={1} className="text-black" />
-      </button>
-    </div>
-  );
-
   return (
     <div
-      className={"flex flex-col w-full p-4 gap-3 bg-white rounded-lg shadow-md"}
+      className="flex flex-col w-full p-4 gap-3 bg-white rounded-lg shadow-md"
     >
-      <ChartHeader />
+      <div className="flex justify-between items-center w-full">
+        <div className="relative pb-2">
+          <h3 className="text-base font-semibold text-black">{title}</h3>
+          <div
+            className="absolute bottom-0 left-0 w-8 h-[3px] rounded-full"
+            style={{ backgroundColor: color }}
+          />
+        </div>
+        <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+          <Icon path={mdiDownload} size={1} className="text-black" />
+        </button>
+      </div>
 
       <div className="w-full h-[160px]">
         <BarChart
@@ -62,7 +58,7 @@ export function ForecastChart({ title, data, color }: ForecastChartProps) {
           series={[
             {
               dataKey: "value",
-              color: color,
+              color,
             },
           ]}
           grid={{ horizontal: true, vertical: true }}

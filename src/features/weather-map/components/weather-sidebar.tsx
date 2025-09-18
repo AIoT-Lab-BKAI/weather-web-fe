@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useWeatherMapLayout } from "../context";
 
 import Icon from "@mdi/react";
 import {
@@ -40,12 +40,13 @@ const menuItems = [
 ];
 
 export function WeatherSidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { sidebarCollapsed, toggleSidebar } = useWeatherMapLayout();
 
   return (
     <aside className="flex flex-col w-[219px] p-4 gap-2 rounded-2xl bg-white/70 backdrop-blur-sm shadow-lg transition-all duration-300">
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        type="button"
+        onClick={toggleSidebar}
         className="flex justify-between items-center w-full"
       >
         <span className="font-medium text-base text-black">Weather map</span>
@@ -53,15 +54,15 @@ export function WeatherSidebar() {
           path={mdiChevronUp}
           size={1}
           className={`text-black transition-transform duration-300 ${
-            isCollapsed ? "rotate-180" : ""
+            sidebarCollapsed ? "rotate-180" : ""
           }`}
         />
       </button>
 
-      {!isCollapsed && (
+      {!sidebarCollapsed && (
         <nav>
           <ul className="space-y-2">
-            {menuItems.map((item) => (
+            {menuItems.map(item => (
               <li key={item.to}>
                 <Link
                   to={item.to}

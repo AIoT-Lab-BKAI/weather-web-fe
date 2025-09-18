@@ -1,6 +1,9 @@
 import Icon from "@mdi/react";
-import { mdiChevronDown, mdiPlay, mdiSkipNext, mdiSkipPrevious } from "@mdi/js";
+import { mdiPlay, mdiSkipNext, mdiSkipPrevious } from "@mdi/js";
 import { FC, ReactNode } from "react";
+import { ConfigProvider, Slider, DatePicker } from "antd";
+import { useWeatherMapLayout } from "../context";
+import dayjs from "dayjs";
 
 const CircleButton: FC<{ children: ReactNode; className?: string }> = ({
   children,
@@ -14,8 +17,7 @@ const CircleButton: FC<{ children: ReactNode; className?: string }> = ({
 );
 
 export function TimelineControl() {
-  const progressPercent = 70;
-
+  const { setSliderValue, selectedDate, setSelectedDate } = useWeatherMapLayout();
   return (
     <div className="flex items-center justify-center gap-4 px-4 py-2 w-full">
       <CircleButton>
@@ -25,46 +27,71 @@ export function TimelineControl() {
         <Icon path={mdiSkipPrevious} size={1} className="text-black" />
       </CircleButton>
 
-      <button className="flex items-center justify-center gap-2 w-[159px] h-12 px-4 bg-white rounded-full shadow-lg">
-        <span className="text-base font-normal text-black">29/07/2025</span>
-        <Icon path={mdiChevronDown} size={1} className="text-black" />
-      </button>
-
-      <div className="relative flex-1 max-w-[686px] h-[55px] flex items-center">
-        <div
-          className="absolute bottom-[28px] z-10"
-          style={{ left: `${progressPercent}%`, transform: "translateX(-50%)" }}
-        >
-          <div className="relative bg-[#FF8D28] text-white text-xs font-semibold px-2 py-0.5 rounded">
-            21:30
-            <div className="absolute left-1/2 -bottom-1 w-2 h-2 bg-[#FF8D28] transform -translate-x-1/2 rotate-45" />
-          </div>
-        </div>
-
-        <div className="w-full h-1 bg-white rounded-full shadow-inner">
-          <div
-            className="h-1 bg-[#FF8D28] rounded-l-full"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-
-        <div
-          className="absolute w-4 h-4 bg-white border-2 border-[#FF8D28] rounded-full shadow-md"
-          style={{ left: `${progressPercent}%`, transform: "translateX(-50%)" }}
+      <ConfigProvider
+        theme={{
+          components: {
+            DatePicker: {
+              colorPrimary: "#FF8D28",
+              borderRadius: 24,
+            },
+          },
+        }}
+      >
+        <DatePicker
+          value={selectedDate ? dayjs(selectedDate) : null}
+          onChange={date => setSelectedDate(date ? date.toDate() : null)}
+          format="DD/MM/YYYY"
+          placeholder="Select date"
+          className="w-[159px] h-12 rounded-full"
+          style={{
+            borderRadius: "24px",
+          }}
         />
+      </ConfigProvider>
 
-        <span
-          className="absolute -bottom-1 left-[50%] text-white text-xs font-semibold"
-          style={{ transform: "translateX(-50%)" }}
+      <div className="w-160 h-12">
+        <ConfigProvider
+          theme={{
+            components: {
+              Slider: {
+                controlSize: 20,
+                railSize: 8,
+                handleColor: "#FF8D28",
+                handleActiveColor: "#FF8D28",
+                handleActiveOutlineColor: "#FF8D2888",
+                handleSize: 14,
+                handleSizeHover: 18,
+              },
+            },
+          }}
         >
-          20:00
-        </span>
-        <span
-          className="absolute -bottom-1 left-[80%] text-white text-xs font-semibold"
-          style={{ transform: "translateX(-50%)" }}
-        >
-          22:00
-        </span>
+          <Slider
+            min={0}
+            max={23}
+            onChange={setSliderValue}
+            included
+            styles={{
+              track: { backgroundColor: "#FFFFFF" },
+              rail: { backgroundColor: "#FF8D28" },
+              root: { color: "#FFF" },
+            }}
+            tooltip={{ color: "#FF8D28", formatter: value => `${value}:00`, styles: { body: { color: "#FFF" } } }}
+            marks={{
+              1: {
+                style: { color: "#FFF" },
+                label: "1:00",
+              },
+              10: {
+                style: { color: "#FFF" },
+                label: "10:00",
+              },
+              20: {
+                style: { color: "#FFF" },
+                label: "20:00",
+              },
+            }}
+          />
+        </ConfigProvider>
       </div>
 
       <CircleButton>

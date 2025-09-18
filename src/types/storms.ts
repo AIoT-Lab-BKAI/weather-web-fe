@@ -17,16 +17,6 @@ export interface StormUpdate {
   storm_id?: number;
 }
 
-export interface StormPagination {
-  data: StormRead[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 // BestTrack File Types
 export interface BestTrackFileCreate {
   storm_id: number;
@@ -49,16 +39,6 @@ export interface BestTrackFileUpdate {
   storm_id?: number;
   issued_time?: string;
   file_name?: string;
-}
-
-export interface BestTrackFilePagination {
-  data: BestTrackFileRead[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 // NWP Data Types
@@ -85,16 +65,6 @@ export interface NWPDataUpdate {
   issued_time?: string;
 }
 
-export interface NWPDataPagination {
-  data: NWPDataRead[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 // HRES Data Types
 export interface HRESDataCreate {
   storm_id: number;
@@ -119,12 +89,32 @@ export interface HRESDataUpdate {
   issued_time?: string;
 }
 
-export interface HRESDataPagination {
-  data: HRESDataRead[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+export interface StormLifecycleCreate {
+  storm_id: number;
+  timestamp: string;
+  latitude: number;
+  longitude: number;
+  intensity: number;
+  source?: string | null;
+}
+
+export interface StormLifecycleRead {
+  storm_id: number;
+  timestamp: string;
+  latitude: number;
+  longitude: number;
+  intensity: number;
+  source: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+}
+
+export interface StormLifecycleUpdate {
+  storm_id?: number;
+  timestamp?: string;
+  latitude?: number;
+  longitude?: number;
+  intensity?: number;
+  source?: string | null;
 }

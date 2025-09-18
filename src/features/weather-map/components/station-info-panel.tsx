@@ -20,9 +20,7 @@ export function StationInfoPanel({
 
   return (
     <div
-      className={
-        "p-4 flex flex-col gap-2 bg-white/70 backdrop-blur-sm shadow-2xl rounded-2xl"
-      }
+      className="p-4 flex flex-col gap-2 bg-white/70 backdrop-blur-sm shadow-2xl rounded-2xl"
     >
       <div className="flex justify-between items-start">
         <div>

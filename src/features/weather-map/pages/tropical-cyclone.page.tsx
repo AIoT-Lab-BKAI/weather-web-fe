@@ -3,65 +3,71 @@ import { mdiWeatherHurricaneOutline } from "@mdi/js";
 import L from "leaflet";
 import { Circle, Marker, Polyline, Tooltip } from "react-leaflet";
 import ReactDOMServer from "react-dom/server";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { stormsApi } from "@/services/apis/storms.api";
+import { StormLifecycleRead } from "@/types/storms";
+import { useWeatherMapLayout } from "../context";
 
-interface CyclonePoint {
-  id: number;
-  lat: number;
-  lng: number;
+interface CyclonePoint extends StormLifecycleRead {
   status: "past" | "forecast";
   radius: number;
-  vmax: number;
 }
-
-const mockCycloneData: CyclonePoint[] = [
-  { id: 1, lat: 15.5, lng: 115.5, status: "past", radius: 0, vmax: 60 },
-  { id: 2, lat: 16.2, lng: 114.0, status: "past", radius: 0, vmax: 65 },
-  { id: 3, lat: 17.0, lng: 112.5, status: "past", radius: 0, vmax: 70 },
-  { id: 4, lat: 17.5, lng: 111.0, status: "past", radius: 0, vmax: 75 },
-  { id: 5, lat: 18.2, lng: 109.8, status: "forecast", radius: 60000, vmax: 80 },
-  { id: 6, lat: 19.0, lng: 108.5, status: "forecast", radius: 80000, vmax: 85 },
-  {
-    id: 7,
-    lat: 20.2,
-    lng: 107.0,
-    status: "forecast",
-    radius: 100000,
-    vmax: 90,
-  },
-  {
-    id: 8,
-    lat: 21.0,
-    lng: 105.8,
-    status: "forecast",
-    radius: 120000,
-    vmax: 83,
-  },
-];
 
 const CycloneTooltipContent: React.FC<{ point: CyclonePoint }> = ({
   point,
 }) => {
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).replace(",", "");
+  };
+
   return (
     <div className="cyclone-tooltip-content relative flex flex-col items-start p-2 gap-2 w-[102px] bg-white/70 backdrop-blur-sm rounded-lg text-black text-xs font-normal">
       <div className="w-full">
-        <span>Lat: {point.lat.toFixed(1)}°N</span>
+        <span>
+          Lat:
+          {point.latitude.toFixed(1)}
+          °N
+        </span>
         <hr className="border-t-[0.5px] border-gray-300 mt-2" />
       </div>
       <div className="w-full">
-        <span>Lon: {point.lng.toFixed(1)}°E</span>
+        <span>
+          Lon:
+          {point.longitude.toFixed(1)}
+          °E
+        </span>
         <hr className="border-t-[0.5px] border-gray-300 mt-2" />
       </div>
       <div className="w-full">
-        <span>Vmax: {point.vmax} km/h</span>
+        <span>
+          Time:
+          {formatTimestamp(point.timestamp)}
+        </span>
+        <hr className="border-t-[0.5px] border-gray-300 mt-2" />
+      </div>
+      <div className="w-full">
+        <span>
+          Intensity:
+          {point.intensity}
+          {" "}
+          km/h
+        </span>
       </div>
     </div>
   );
 };
 
-const createCycloneIcon = (status: "past" | "forecast") => {
+function createCycloneIcon(status: "past" | "forecast") {
   const iconHtml = ReactDOMServer.renderToString(
-    <Icon path={mdiWeatherHurricaneOutline} size={1} color="white" />
+    <Icon path={mdiWeatherHurricaneOutline} size={1} color="white" />,
   );
   const backgroundColor = status === "forecast" ? "#FF2D55" : "#757474";
 
@@ -83,14 +89,100 @@ const createCycloneIcon = (status: "past" | "forecast") => {
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
-};
+}
 
 export function TropicalCyclonePage() {
-  const allPositions = mockCycloneData.map(
-    (p) => [p.lat, p.lng] as [number, number]
+  const [cycloneData, setCycloneData] = useState<CyclonePoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { selectedDate, sliderValue: selectedHour } = useWeatherMapLayout();
+
+  useEffect(() => {
+    const fetchCycloneData = async () => {
+      try {
+        setLoading(true);
+        const response = await stormsApi.stormLifecycle.list();
+
+        // Sort by timestamp to determine timeline
+        const sortedData = response.data.sort((a: StormLifecycleRead, b: StormLifecycleRead) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        );
+
+        // Determine the reference time based on selectedDate and selectedHour
+        let referenceTime: Date;
+        if (selectedDate) {
+          referenceTime = new Date(selectedDate);
+          referenceTime.setHours(selectedHour, 0, 0, 0);
+        }
+        else {
+          referenceTime = new Date();
+        }
+
+        // Transform data and determine status
+        const transformedData: CyclonePoint[] = sortedData.map((item: StormLifecycleRead, index: number) => {
+          const timestamp = new Date(item.timestamp);
+          const isForecast = timestamp > referenceTime;
+
+          // Calculate radius for forecast points with increment
+          let radius = 0;
+          if (isForecast) {
+            // Base radius of 50km, increasing by 20km for each subsequent forecast point
+            const forecastIndex = sortedData.slice(0, index + 1).filter((d: StormLifecycleRead) =>
+              new Date(d.timestamp) > referenceTime,
+            ).length;
+            radius = 10000 + (forecastIndex - 1) * 5000;
+          }
+
+          return {
+            ...item,
+            status: isForecast ? "forecast" : "past",
+            radius,
+          };
+        });
+
+        // Filter data based on selected time frame
+        // Show past points up to the reference time and forecast points after
+        const filteredData = transformedData.filter((item: CyclonePoint) => {
+          const itemTime = new Date(item.timestamp);
+
+          if (!selectedDate) {
+            // If no date is selected, show current position and forecasts
+            return itemTime <= referenceTime || item.status === "forecast";
+          }
+
+          if (item.status === "past") {
+            // Show past points that are close to the reference time (within a reasonable range)
+            // This helps show the cyclone's path leading up to the selected time
+            return itemTime <= referenceTime;
+          }
+          else {
+            // Show forecast points after the reference time
+            return itemTime > referenceTime;
+          }
+        });
+
+        setCycloneData(filteredData);
+      }
+      catch (error) {
+        console.error("Error fetching cyclone data:", error);
+        setCycloneData([]);
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCycloneData();
+  }, [selectedDate, selectedHour]);
+
+  if (loading) {
+    return null; // Or loading spinner
+  }
+
+  const allPositions = cycloneData.map(
+    p => [p.latitude, p.longitude] as [number, number],
   );
-  const forecastStartIndex = mockCycloneData.findIndex(
-    (p) => p.status === "forecast"
+  const forecastStartIndex = cycloneData.findIndex(
+    p => p.status === "forecast",
   );
   const pastPath = allPositions.slice(0, forecastStartIndex + 1);
   const forecastPath = allPositions.slice(forecastStartIndex);
@@ -110,22 +202,25 @@ export function TropicalCyclonePage() {
         />
       )}
 
-      {mockCycloneData.map((point) => (
-        <React.Fragment key={point.id}>
+      {cycloneData.map((point, index) => (
+        <React.Fragment key={`${point.storm_id}-${point.timestamp}-${index}`}>
           {point.radius > 0 && (
             <Circle
-              center={[point.lat, point.lng]}
+              center={[point.latitude, point.longitude]}
               radius={point.radius}
               pathOptions={{
                 color: "#FF2D55",
                 fillColor: "#FF2D55",
                 fillOpacity: 0.4,
+                opacity: 1,
+                fillRule: "evenodd",
               }}
+
             />
           )}
 
           <Marker
-            position={[point.lat, point.lng]}
+            position={[point.latitude, point.longitude]}
             icon={createCycloneIcon(point.status)}
           >
             <Tooltip

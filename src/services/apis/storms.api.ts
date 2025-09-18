@@ -1,21 +1,21 @@
 import { apiService } from "@/services/api.service";
+import { PaginatedResult } from "@/types/interfaces/pagination";
 import {
-  StormCreate,
-  StormRead,
-  StormUpdate,
-  StormPagination,
   BestTrackFileCreate,
   BestTrackFileRead,
   BestTrackFileUpdate,
-  BestTrackFilePagination,
-  NWPDataCreate,
-  NWPDataRead,
-  NWPDataUpdate,
-  NWPDataPagination,
   HRESDataCreate,
   HRESDataRead,
   HRESDataUpdate,
-  HRESDataPagination,
+  NWPDataCreate,
+  NWPDataRead,
+  NWPDataUpdate,
+  StormCreate,
+  StormLifecycleCreate,
+  StormLifecycleRead,
+  StormLifecycleUpdate,
+  StormRead,
+  StormUpdate,
 } from "@/types/storms";
 
 export interface PaginationParams {
@@ -29,7 +29,7 @@ export const stormsApi = {
   // Storms
   storms: {
     list: (params?: PaginationParams) =>
-      apiService.get<StormPagination>("/storms/storms/", { params }),
+      apiService.get<PaginatedResult<StormRead>>("/storms/storms/", { params }),
 
     create: (data: StormCreate) =>
       apiService.post<StormRead>("/storms/storms/", data),
@@ -47,7 +47,7 @@ export const stormsApi = {
   // BestTrack Files
   bestTrackFiles: {
     list: (params?: PaginationParams & { storm_id?: number }) =>
-      apiService.get<BestTrackFilePagination>("/storms/besttrack-files/", { params }),
+      apiService.get<PaginatedResult<BestTrackFileRead>>("/storms/besttrack-files/", { params }),
 
     create: (data: BestTrackFileCreate) =>
       apiService.post<BestTrackFileRead>("/storms/besttrack-files/", data),
@@ -62,7 +62,7 @@ export const stormsApi = {
   // NWP Data
   nwpData: {
     list: (params?: PaginationParams & { storm_id?: number }) =>
-      apiService.get<NWPDataPagination>("/storms/nwp-data/", { params }),
+      apiService.get<PaginatedResult<NWPDataRead>>("/storms/nwp-data/", { params }),
 
     create: (data: NWPDataCreate) =>
       apiService.post<NWPDataRead>("/storms/nwp-data/", data),
@@ -77,7 +77,7 @@ export const stormsApi = {
   // HRES Data
   hresData: {
     list: (params?: PaginationParams & { storm_id?: number }) =>
-      apiService.get<HRESDataPagination>("/storms/hres-data/", { params }),
+      apiService.get<PaginatedResult<HRESDataRead>>("/storms/hres-data/", { params }),
 
     create: (data: HRESDataCreate) =>
       apiService.post<HRESDataRead>("/storms/hres-data/", data),
@@ -87,5 +87,22 @@ export const stormsApi = {
 
     delete: (dataId: string) =>
       apiService.delete(`/storms/hres-data/${dataId}`),
+  },
+
+  stormLifecycle: {
+    list: (params?: PaginationParams) =>
+      apiService.get<PaginatedResult<StormLifecycleRead>>("/storms/storm-lifecycle/", { params }),
+
+    create: (data: StormLifecycleCreate) =>
+      apiService.post<StormLifecycleRead>("/storms/storm-lifecycle/", data),
+
+    get: (stormId: number) =>
+      apiService.get<StormLifecycleRead>(`/storms/storm-lifecycle/${stormId}`),
+
+    update: (stormId: number, data: StormLifecycleUpdate) =>
+      apiService.put<StormLifecycleRead>(`/storms/storm-lifecycle/${stormId}`, data),
+
+    delete: (stormId: number) =>
+      apiService.delete(`/storms/storm-lifecycle/${stormId}`),
   },
 };

@@ -24,6 +24,7 @@ export default antfu({
       "react/no-array-index-key": "off",
       "no-alert": "off",
       "react-hooks-extra/no-direct-set-state-in-use-effect": "off",
+      "react-dom/no-missing-button-type": "off",
     },
   },
   javascript: true,
