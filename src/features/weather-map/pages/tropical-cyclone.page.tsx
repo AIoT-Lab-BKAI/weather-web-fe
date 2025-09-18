@@ -107,6 +107,8 @@ export function TropicalCyclonePage() {
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         );
 
+        const data = sortedData;
+
         // Determine the reference time based on selectedDate and selectedHour
         let referenceTime: Date;
         if (selectedDate) {
@@ -118,7 +120,7 @@ export function TropicalCyclonePage() {
         }
 
         // Transform data and determine status
-        const transformedData: CyclonePoint[] = sortedData.map((item: StormLifecycleRead, index: number) => {
+        const transformedData: CyclonePoint[] = data.map((item: StormLifecycleRead, index: number) => {
           const timestamp = new Date(item.timestamp);
           const isForecast = timestamp > referenceTime;
 
@@ -126,7 +128,7 @@ export function TropicalCyclonePage() {
           let radius = 0;
           if (isForecast) {
             // Base radius of 50km, increasing by 20km for each subsequent forecast point
-            const forecastIndex = sortedData.slice(0, index + 1).filter((d: StormLifecycleRead) =>
+            const forecastIndex = data.slice(0, index + 1).filter((d: StormLifecycleRead) =>
               new Date(d.timestamp) > referenceTime,
             ).length;
             radius = 10000 + (forecastIndex - 1) * 5000;
