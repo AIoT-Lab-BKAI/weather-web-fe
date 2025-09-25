@@ -73,14 +73,9 @@ export function PrecipitationPage() {
   // Transform rainfall records to chart data
   const transformRainfallData = (records: RainfallRecordRead[]): LevelData[] => {
     // Group records by time periods and create chart data
-    const dailyData: ChartData[] = records.slice(0, 7).map((record, index) => ({
+    const dailyData: ChartData[] = records.map((record, index) => ({
       label: `Ngày ${index + 1}`,
       value: record.accumulated_rainfall,
-    }));
-
-    const weeklyData: ChartData[] = records.slice(0, 7).map((record, index) => ({
-      label: `Tuần ${index + 1}`,
-      value: record.accumulated_rainfall * 7, // Mock weekly data
     }));
 
     return [
@@ -88,11 +83,6 @@ export function PrecipitationPage() {
         title: "Dự báo lượng mưa trong 7 ngày tới",
         data: dailyData,
         color: "#6155F5",
-      },
-      {
-        title: "Dự báo lượng mưa trong 7 tuần tới",
-        data: weeklyData,
-        color: "#CB30E0",
       },
     ];
   };
@@ -137,30 +127,18 @@ export function PrecipitationPage() {
         // Create a Map to store rainfall records for each station
         const recordsMap = new Map<number, RainfallRecordRead[]>();
 
-        // Fetch rainfall data for each station
-        const rainfallPromises = stations.map(async (station) => {
-          try {
-            const response = await precipitationApi.rainfallRecords.list({
-              station_id: station.id,
-              start_date: startTime.toISOString().split("T")[0],
-              end_date: endTime.toISOString().split("T")[0],
-            });
-
-            const marks = {} as any;
-            for (const record of response.data) {
-              marks[new Date(record.start_time).getHours()] = `${new Date(record.start_time).getHours()}:00`;
-            }
-            setSliderMarks(marks);
-
-            recordsMap.set(station.id, response.data);
-          }
-          catch (err) {
-            console.error(`Error fetching rainfall for station ${station.id}:`, err);
-            recordsMap.set(station.id, []);
-          }
+        const response = await precipitationApi.rainfallRecords.list({
+          start_date: startTime.toISOString().split("T")[0],
+          end_date: endTime.toISOString().split("T")[0],
         });
 
-        await Promise.all(rainfallPromises);
+        for (const record of response.data) {
+          if (!recordsMap.has(record.station_id)) {
+            recordsMap.set(record.station_id, []);
+          }
+          recordsMap.get(record.station_id)!.push(record);
+        }
+
         setStationDailyRecords(recordsMap);
       }
       catch (err) {
@@ -181,9 +159,10 @@ export function PrecipitationPage() {
       }
 
       try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 30); // Get last 30 days of data
+        const endDate = new Date(selectedDate || new Date());
+        endDate.setDate(endDate.getDate() + 7);
+        const startDate = new Date(selectedDate || new Date());
+        startDate.setDate(startDate.getDate() - 1);
 
         const response = await precipitationApi.rainfallRecords.list({
           station_id: selectedStation.id,
@@ -202,7 +181,7 @@ export function PrecipitationPage() {
     };
 
     fetchRainfallData();
-  }, [selectedStation]);
+  }, [selectedStation, selectedDate]);
 
   const handleMarkerClick = (station: StationInfo) => {
     setSelectedStation(station);
@@ -246,7 +225,7 @@ export function PrecipitationPage() {
           display: flex;
           justify-content: center;
           align-items: center;
-          border: 2px solid white;
+          border: 2px solid blue;
           box-shadow: 0 2px 5px rgba(0,0,0,0.3);
           position: relative;
         ">
