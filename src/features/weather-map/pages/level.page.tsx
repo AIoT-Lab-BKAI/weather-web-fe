@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { ReservoirRead, ReservoirOperationRead } from "@/types/reservoirs";
 
 export function LevelPage() {
-  const { selectedStation, setSelectedStation, selectedDate, selectedHour } = useWeatherMapLayout();
+  const { selectedStation, setSelectedStation, selectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
   const [stations, setStations] = useState<StationInfo[]>([]);
   const [levelData, setLevelData] = useState<LevelData[]>([]);
   const [reservoirOperations, setReservoirOperations] = useState<Map<number, ReservoirOperationRead[]>>(() => new Map());
@@ -142,6 +142,12 @@ export function LevelPage() {
               end_date: endTime.toISOString().split("T")[0],
             });
 
+            const marks = {} as any;
+            for (const record of response.data) {
+              marks[new Date(record.timestamp).getHours()] = `${new Date(record.timestamp).getHours()}:00`;
+            }
+            setSliderMarks(marks);
+
             operationsMap.set(station.id, response.data);
           }
           catch (err) {
@@ -219,7 +225,7 @@ export function LevelPage() {
   const createLevelIcon = (waterLevel: number = 0) => {
     const color = getWaterLevelColor(waterLevel);
     const iconHtml = ReactDOMServer.renderToString(
-      <Icon path={mdiWaterOutline} size={0.8} color="white" />,
+      <Icon path={mdiWaterOutline} size={1} color="blue" />,
     );
 
     // Format water level value for display
@@ -229,8 +235,8 @@ export function LevelPage() {
       html: `
         <div style="
           background-color: ${color};
-          width: 32px;
-          height: 32px;
+          width: 40px;
+          height: 40px;
           border-radius: 100% 100% 100% 0;
           transform: rotate(-45deg);
           display: flex;

@@ -8,7 +8,7 @@ import ReactDOM from "react-dom";
 import { ChartData, LevelData, StationInfo } from "../types";
 import { useWeatherMapLayout } from "../context";
 import { precipitationApi } from "@/services/apis/precipitation.api";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { StationRead, RainfallRecordRead } from "@/types/precipitation";
 
 export function PrecipitationPage() {
@@ -45,13 +45,13 @@ export function PrecipitationPage() {
       return 0;
 
     const targetDateTime = new Date(selectedDate);
-    targetDateTime.setHours(hour, 0, 0, 0);
+    targetDateTime.setHours(hour + 1, 0, 0, 0);
 
     // Find the record that contains the target hour
     const matchingRecord = records.find((record) => {
       const recordStart = new Date(record.start_time);
       const recordEnd = new Date(record.end_time);
-      return targetDateTime >= recordStart && targetDateTime < recordEnd;
+      return targetDateTime >= recordStart && targetDateTime <= recordEnd;
     });
 
     return matchingRecord ? matchingRecord.accumulated_rainfall : 0;
@@ -145,6 +145,12 @@ export function PrecipitationPage() {
               end_date: endTime.toISOString().split("T")[0],
             });
 
+            const marks = {} as any;
+            for (const record of response.data) {
+              marks[new Date(record.start_time).getHours()] = `${new Date(record.start_time).getHours()}:00`;
+            }
+            setSliderMarks(marks);
+
             recordsMap.set(station.id, response.data);
           }
           catch (err) {
@@ -163,7 +169,7 @@ export function PrecipitationPage() {
     };
 
     fetchAllStationsRainfall();
-  }, [selectedDate, stations]); // Only depend on selectedDate, not selectedHour
+  }, [selectedDate, stations, setSliderMarks]); // Only depend on selectedDate, not selectedHour
 
   // Fetch rainfall data when a station is selected
   useEffect(() => {
@@ -205,16 +211,6 @@ export function PrecipitationPage() {
     setSelectedStation(null);
   };
 
-  useEffect(() => {
-    setSliderMarks({
-      0: "0h",
-      6: "6h",
-      12: "12h",
-      18: "18h",
-      23: "23h",
-    });
-  }, []);
-
   // Show loading state
   if (loading) {
     return null; // Or you could return a loading spinner
@@ -232,7 +228,7 @@ export function PrecipitationPage() {
   const createLevelIcon = (rainfall: number = 0) => {
     const color = getRainfallColor(rainfall);
     const iconHtml = ReactDOMServer.renderToString(
-      <Icon path={mdiWeatherPouring} size={0.8} color="white" />,
+      <Icon path={mdiWeatherPouring} size={1} color="lightblue" />,
     );
 
     // Format rainfall value for display
@@ -242,8 +238,8 @@ export function PrecipitationPage() {
       html: `
         <div style="
           background-color: ${color};
-          width: 32px;
-          height: 32px;
+          width: 40px;
+          height: 40px;
           border-radius: 100% 100% 100% 0;
           transform: rotate(-45deg);
           display: flex;

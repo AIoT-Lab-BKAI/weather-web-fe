@@ -81,6 +81,13 @@ export function TropicalCyclonePage() {
     if (data.length === 0)
       return;
 
+    const maxDate = dayjs(data[data.length - 1].timestamp);
+    const minDate = dayjs(data[0].timestamp);
+    if (selectedDate && (dayjs(selectedDate).isBefore(minDate, "day") || dayjs(selectedDate).isAfter(maxDate, "day"))) {
+      setCycloneData([]);
+      return;
+    }
+
     const sliderMarks = data.filter((item: StormLifecycleRead) => {
       return dayjs(item.timestamp).isSame(selectedDate, "day");
     }).reduce((marks: Record<number, string>, item: StormLifecycleRead) => {
