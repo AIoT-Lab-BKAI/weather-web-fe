@@ -39,6 +39,9 @@ export interface WeatherMapLayoutContextType {
 
   sliderMarks: SliderMarks;
   setSliderMarks: (markers: SliderMarks) => void;
+
+  sliderDisabled: boolean;
+  setSliderDisabled: (disabled: boolean) => void;
 }
 
 export const WeatherMapLayoutContext = createContext<WeatherMapLayoutContextType | undefined>(undefined);
@@ -66,6 +69,7 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
   const [selectedHour, setSelectedHour] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const [sliderMarks, setSliderMarks] = useState<SliderMarks>({});
+  const [sliderDisabled, setSliderDisabled] = useState<boolean>(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
@@ -95,6 +99,8 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       setSelectedDate,
       sliderMarks,
       setSliderMarks,
+      sliderDisabled,
+      setSliderDisabled,
     }),
     [
       sidebarCollapsed,
@@ -108,6 +114,7 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       selectedHour,
       selectedDate,
       sliderMarks,
+      sliderDisabled,
     ],
   );
 

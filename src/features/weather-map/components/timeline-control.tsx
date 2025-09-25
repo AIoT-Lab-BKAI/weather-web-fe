@@ -19,7 +19,7 @@ const CircleButton: FC<{ children: ReactNode; className?: string; onClick?: () =
 );
 
 export function TimelineControl() {
-  const { selectedHour, setSelectedHour, selectedDate, setSelectedDate, sliderMarks } = useWeatherMapLayout();
+  const { selectedHour, setSelectedHour, selectedDate, setSelectedDate, sliderMarks, sliderDisabled } = useWeatherMapLayout();
 
   const handlePreviousDay = () => {
     if (selectedDate) {
@@ -97,6 +97,7 @@ export function TimelineControl() {
           }}
           tooltip={{ color: "#FF8D28", formatter: value => `${value}:00`, styles: { body: { color: "#FFF" } } }}
           marks={sliderMarks}
+          disabled={sliderDisabled}
         />
       </ConfigProvider>
       <CircleButton onClick={handleNextDay}>

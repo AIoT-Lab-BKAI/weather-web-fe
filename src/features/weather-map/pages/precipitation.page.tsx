@@ -1,23 +1,28 @@
-import { Marker } from "react-leaflet";
-import L from "leaflet";
-import ReactDOMServer from "react-dom/server";
-import Icon from "@mdi/react";
-import { mdiWeatherPouring } from "@mdi/js";
-import { StationInfoPanel } from "../components/station-info-panel";
-import ReactDOM from "react-dom";
-import { ChartData, LevelData, StationInfo } from "../types";
-import { useWeatherMapLayout } from "../context";
 import { precipitationApi } from "@/services/apis/precipitation.api";
-import { useState, useEffect } from "react";
-import { StationRead, RainfallRecordRead } from "@/types/precipitation";
+import { RainfallRecordRead, StationRead } from "@/types/precipitation";
+import { mdiWeatherPouring } from "@mdi/js";
+import Icon from "@mdi/react";
+import L from "leaflet";
+import { useEffect, useState } from "react";
+import ReactDOM from "react-dom";
+import ReactDOMServer from "react-dom/server";
+import { Marker } from "react-leaflet";
+import { StationInfoPanel } from "../components/station-info-panel";
+import { useWeatherMapLayout } from "../context";
+import { ChartData, LevelData, StationInfo } from "../types";
 
 export function PrecipitationPage() {
-  const { selectedStation, setSelectedStation, selectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
+  const { selectedStation, setSelectedStation, selectedDate, setSliderDisabled } = useWeatherMapLayout();
   const [stations, setStations] = useState<StationInfo[]>([]);
   const [rainfallData, setRainfallData] = useState<LevelData[]>([]);
   const [stationDailyRecords, setStationDailyRecords] = useState<Map<number, RainfallRecordRead[]>>(() => new Map());
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSliderDisabled(true);
+    return () => setSliderDisabled(false);
+  }, [setSliderDisabled]);
 
   // Color scale for rainfall intensity (mm/hour)
   const getRainfallColor = (rainfall: number): string => {
@@ -39,19 +44,16 @@ export function PrecipitationPage() {
   };
 
   // Extract rainfall value for specific hour from daily records
-  const getRainfallForHour = (stationId: number, hour: number): number => {
+  const getRainfall = (stationId: number): number => {
     const records = stationDailyRecords.get(stationId);
     if (!records || !selectedDate)
       return 0;
 
-    const targetDateTime = new Date(selectedDate);
-    targetDateTime.setHours(hour + 1, 0, 0, 0);
-
     // Find the record that contains the target hour
     const matchingRecord = records.find((record) => {
-      const recordStart = new Date(record.start_time);
-      const recordEnd = new Date(record.end_time);
-      return targetDateTime >= recordStart && targetDateTime <= recordEnd;
+      const recordDate = new Date(record.start_time).toDateString();
+      const targetDate = new Date(selectedDate).toDateString();
+      return recordDate.slice(0, 10) === targetDate.slice(0, 10);
     });
 
     return matchingRecord ? matchingRecord.accumulated_rainfall : 0;
@@ -73,10 +75,16 @@ export function PrecipitationPage() {
   // Transform rainfall records to chart data
   const transformRainfallData = (records: RainfallRecordRead[]): LevelData[] => {
     // Group records by time periods and create chart data
-    const dailyData: ChartData[] = records.map((record, index) => ({
-      label: `Ngày ${index + 1}`,
-      value: record.accumulated_rainfall,
-    }));
+    const dailyData: ChartData[] = records
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      .map((record) => {
+        const date = new Date(record.start_time);
+        const formattedDate = `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
+        return {
+          label: formattedDate,
+          value: record.accumulated_rainfall,
+        };
+      });
 
     return [
       {
@@ -130,6 +138,7 @@ export function PrecipitationPage() {
         const response = await precipitationApi.rainfallRecords.list({
           start_date: startTime.toISOString().split("T")[0],
           end_date: endTime.toISOString().split("T")[0],
+          limit: 10000,
         });
 
         for (const record of response.data) {
@@ -148,7 +157,7 @@ export function PrecipitationPage() {
     };
 
     fetchAllStationsRainfall();
-  }, [selectedDate, stations, setSliderMarks]); // Only depend on selectedDate, not selectedHour
+  }, [selectedDate, stations]); // Only depend on selectedDate, not selectedHour
 
   // Fetch rainfall data when a station is selected
   useEffect(() => {
@@ -160,9 +169,9 @@ export function PrecipitationPage() {
 
       try {
         const endDate = new Date(selectedDate || new Date());
-        endDate.setDate(endDate.getDate() + 7);
+        endDate.setDate(endDate.getDate() + 9);
         const startDate = new Date(selectedDate || new Date());
-        startDate.setDate(startDate.getDate() - 1);
+        startDate.setDate(startDate.getDate() + 1);
 
         const response = await precipitationApi.rainfallRecords.list({
           station_id: selectedStation.id,
@@ -212,7 +221,7 @@ export function PrecipitationPage() {
     );
 
     // Format rainfall value for display
-    const rainfallText = rainfall > 0 ? rainfall.toFixed(1) : "0";
+    const rainfallText = rainfall > 0 ? rainfall.toFixed(0) : "0";
 
     return L.divIcon({
       html: `
@@ -230,7 +239,7 @@ export function PrecipitationPage() {
           position: relative;
         ">
           <div style="transform: rotate(45deg);">${iconHtml}</div>
-          <!-- Rainfall text
+          <!-- Rainfall text-->
           <div style="
             position: absolute;
             bottom: -20px;
@@ -243,8 +252,8 @@ export function PrecipitationPage() {
             font-size: 10px;
             font-weight: bold;
             white-space: nowrap;
-          ">${rainfallText}mm</div>
-          -->
+          ">${rainfallText}</div>
+
         </div>
       `,
       className: "",
@@ -256,7 +265,7 @@ export function PrecipitationPage() {
   return (
     <>
       {stations.map((station) => {
-        const rainfall = getRainfallForHour(station.id, selectedHour);
+        const rainfall = getRainfall(station.id);
         return (
           <Marker
             key={station.id}
