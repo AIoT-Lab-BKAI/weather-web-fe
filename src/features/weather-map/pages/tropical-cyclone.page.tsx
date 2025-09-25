@@ -1,6 +1,6 @@
 import { formatTimestamp } from "@/lib/date-time";
 import { stormsApi } from "@/services/apis/storms.api";
-import { StormLifecycleRead } from "@/types/storms";
+import { StormLifecycleRead, StormRead } from "@/types/storms";
 import { mdiWeatherHurricaneOutline } from "@mdi/js";
 import Icon from "@mdi/react";
 import dayjs from "dayjs";
@@ -19,7 +19,7 @@ function createCycloneIcon(status: "past" | "forecast") {
   const iconHtml = ReactDOMServer.renderToString(
     <Icon path={mdiWeatherHurricaneOutline} size={1} color="white" />,
   );
-  const backgroundColor = status === "forecast" ? "#FF2D55" : "#757474";
+  const backgroundColor = status === "forecast" ? "#FF2D55D0" : "#757474D0";
 
   return L.divIcon({
     html: `
@@ -46,25 +46,14 @@ export function TropicalCyclonePage() {
   const [loading, setLoading] = useState(true);
   const { selectedDate, setSelectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
   const [data, setData] = useState<StormLifecycleRead[]>([]);
+  const [_storms, setStorms] = useState<StormRead[]>([]);
 
   useEffect(() => {
     const fetchCycloneData = async () => {
       try {
         setLoading(true);
         const storms = await stormsApi.storms.list();
-        const storm = storms.data[storms.data.length - 1];
-
-        const stormLifecycles = await stormsApi.stormLifecycle.list({
-          storm_id: storm.storm_id,
-        });
-
-        const data = stormLifecycles.data.sort((a, b) => {
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-        });
-
-        const lastDay = dayjs(data[data.length - 1].timestamp);
-        setSelectedDate(lastDay.toDate());
-        setData(data);
+        setStorms(storms.data);
       }
       catch (error) {
         console.error("Error fetching cyclone data:", error);
@@ -76,6 +65,27 @@ export function TropicalCyclonePage() {
 
     fetchCycloneData();
   }, []);
+
+  useEffect(() => {
+    const fetchCycloneData = async () => {
+      if (!selectedDate) {
+        setData([]);
+        return;
+      }
+
+      const stormLifecycles = await stormsApi.stormLifecycle.list({
+        start_date: dayjs(selectedDate).subtract(30, "day").startOf("day").toISOString(),
+        end_date: dayjs(selectedDate).add(30, "day").endOf("day").toISOString(),
+      });
+
+      const data = stormLifecycles.data.sort((a, b) => {
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+
+      setData(data);
+    };
+    fetchCycloneData();
+  }, [selectedDate]);
 
   useEffect(() => {
     if (data.length === 0)
@@ -120,7 +130,7 @@ export function TropicalCyclonePage() {
         const forecastIndex = data.slice(0, index + 1).filter((d: StormLifecycleRead) =>
           new Date(d.timestamp) > referenceTime,
         ).length;
-        radius = Math.min(12000 + (forecastIndex - 1) * 6000, 80000);
+        radius = Math.min(8000 + 15000 * Math.log(forecastIndex + 1));
       }
 
       return {
@@ -172,13 +182,13 @@ export function TropicalCyclonePage() {
       {pastPath.length > 1 && (
         <Polyline
           positions={pastPath}
-          pathOptions={{ color: "#757474", weight: 2 }}
+          pathOptions={{ color: "#75747480", weight: 2 }}
         />
       )}
       {forecastPath.length > 1 && (
         <Polyline
           positions={forecastPath}
-          pathOptions={{ color: "#FF2D55", weight: 2 }}
+          pathOptions={{ color: "#FF2D5580", weight: 2 }}
         />
       )}
 
@@ -189,10 +199,9 @@ export function TropicalCyclonePage() {
               center={[point.latitude, point.longitude]}
               radius={point.radius}
               pathOptions={{
-                color: "#FF2D55",
-                fillColor: "#FF2D55",
+                color: "#FF2D5560",
+                fillColor: "#FF2D5580",
                 fillOpacity: 0.4,
-                opacity: 1,
                 fillRule: "evenodd",
               }}
 
@@ -202,6 +211,7 @@ export function TropicalCyclonePage() {
           <Marker
             position={[point.latitude, point.longitude]}
             icon={createCycloneIcon(point.status)}
+            riseOffset={1000}
           >
             <Tooltip
               direction="bottom"
@@ -243,7 +253,7 @@ export function TropicalCyclonePage() {
                   <span>
                     <b>Intensity:</b>
                     &nbsp;
-                    {point.intensity}
+                    {point.intensity.toFixed(0)}
                     &nbsp;
                     <i>km/h</i>
                   </span>

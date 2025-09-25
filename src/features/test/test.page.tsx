@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ChartColumnIncreasingIcon, PlusIcon } from "lucide-react";
+import Demo from "../weather-map/components/variable-radius-envelope";
 
 export function TestPage() {
   return (
@@ -49,6 +50,7 @@ export function TestPage() {
         </CardContent>
       </Card>
       <div className="h-32"></div>
+      <Demo />
     </div>
   );
 }

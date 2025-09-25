@@ -29,7 +29,10 @@ export interface PaginationParams {
 export const stormsApi = {
   // Storms
   storms: {
-    list: (params?: PaginationParams) =>
+    list: (params?: {
+      skip?: number;
+      limit?: number;
+    }) =>
       apiService.get<PaginatedResult<StormRead>>("/storms/storms/", { params }),
 
     create: (data: StormCreate) =>
