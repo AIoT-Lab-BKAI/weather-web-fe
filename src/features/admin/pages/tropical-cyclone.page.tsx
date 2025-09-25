@@ -26,6 +26,8 @@ import { notification } from "antd";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { mdiDatabaseArrowRightOutline } from "@mdi/js";
+import Icon from "@mdi/react";
 
 // Form schemas
 const stormSchema = z.object({
@@ -292,6 +294,15 @@ export function TropicalCyclonePage() {
       queryClient.invalidateQueries({ queryKey: ["hres-data"] });
     },
     onError: error => handleApiError(error, { customMessage: "Failed to delete HRES data" }),
+  });
+
+  const runStormMutation = useMutation({
+    mutationFn: stormsApi.runStorm.run,
+    onSuccess: () => {
+      notification.success({ message: "Storm pipeline run successfully" });
+      queryClient.invalidateQueries({ queryKey: ["storms"] });
+    },
+    onError: error => handleApiError(error, { customMessage: "Failed to run storm" }),
   });
 
   // Handle errors
@@ -583,6 +594,14 @@ export function TropicalCyclonePage() {
             showSearch={true}
             isLoading={stormsQuery.isLoading}
             getItemId={storm => storm.storm_id.toString()}
+            actions={[{
+              label: "Run",
+              icon: <Icon path={mdiDatabaseArrowRightOutline} size={1} className="text-main" />,
+              onClick: (storm) => {
+                notification.info({ message: `Running storm pipeline: ${storm.storm_name}` });
+                runStormMutation.mutate(storm.storm_id);
+              },
+            }]}
           />
         </TabsContent>
 

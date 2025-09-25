@@ -29,10 +29,7 @@ export interface PaginationParams {
 export const stormsApi = {
   // Storms
   storms: {
-    list: (params?: {
-      skip?: number;
-      limit?: number;
-    }) =>
+    list: (params?: PaginationParams) =>
       apiService.get<PaginatedResult<StormRead>>("/storms/storms/", { params }),
 
     create: (data: StormCreate) =>
@@ -141,5 +138,13 @@ export const stormsApi = {
 
     delete: (stormId: number) =>
       apiService.delete(`/storms/storm-lifecycle/${stormId}`),
+  },
+
+  runStorm: {
+    run: (stormId: number) =>
+      apiService.post(`/storms/storms/${stormId}/run`),
+
+    runHightest: () =>
+      apiService.post(`/storms/storms/run-highest`),
   },
 };

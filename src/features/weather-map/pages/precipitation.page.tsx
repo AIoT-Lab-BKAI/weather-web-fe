@@ -130,8 +130,9 @@ export function PrecipitationPage() {
       try {
         const targetDate = new Date(selectedDate);
         const startTime = new Date(targetDate);
+        startTime.setDate(startTime.getDate() - 15);
         const endTime = new Date(targetDate);
-        endTime.setDate(endTime.getDate() + 1);
+        endTime.setDate(endTime.getDate() + 15);
 
         // Create a Map to store rainfall records for each station
         const recordsMap = new Map<number, RainfallRecordRead[]>();
@@ -228,7 +229,7 @@ export function PrecipitationPage() {
   const createLevelIcon = (rainfall: number = 0) => {
     const color = getRainfallColor(rainfall);
     const iconHtml = ReactDOMServer.renderToString(
-      <Icon path={mdiWeatherPouring} size={1} color="lightblue" />,
+      <Icon path={mdiWeatherPouring} size={1} color="blue" />,
     );
 
     // Format rainfall value for display
@@ -250,6 +251,7 @@ export function PrecipitationPage() {
           position: relative;
         ">
           <div style="transform: rotate(45deg);">${iconHtml}</div>
+          <!-- Rainfall text
           <div style="
             position: absolute;
             bottom: -20px;
@@ -263,6 +265,7 @@ export function PrecipitationPage() {
             font-weight: bold;
             white-space: nowrap;
           ">${rainfallText}mm</div>
+          -->
         </div>
       `,
       className: "",

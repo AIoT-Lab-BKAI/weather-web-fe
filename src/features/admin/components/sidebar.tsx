@@ -20,17 +20,17 @@ export function Sidebar() {
    */
   const navItems: NavItem[] = [
     {
-      label: "Dữ liệu bão",
+      label: "Storms",
       icon: <Icon path={mdiWeatherHurricaneOutline} size={1} />,
       to: "/admin/tropical-cyclone",
     },
     {
-      label: "Dữ liệu mưa",
+      label: "Precipitation",
       icon: <Icon path={mdiWeatherPouring} size={1} />,
       to: "/admin/precipitation",
     },
     {
-      label: "Dữ liệu nước sông",
+      label: "Reservoirs",
       icon: <Icon path={mdiWavesArrowUp} size={1} />,
       to: "/admin/rive-level",
     },

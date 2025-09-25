@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { mdiDeleteOutline, mdiPencilOutline } from "@mdi/js";
 import Icon from "@mdi/react";
 import { PlusIcon } from "lucide-react";
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 
 export interface TableColumn<T> {
   key: keyof T | string;
@@ -42,6 +42,7 @@ interface DataTableProps<T> {
   showSearch?: boolean;
   isLoading?: boolean;
   getItemId: (item: T) => string;
+  actions?: { label: string; icon: ReactNode; onClick: (item: T) => void }[];
 }
 
 export function DataTable<T>({
@@ -58,6 +59,7 @@ export function DataTable<T>({
   emptyMessage = "No data found",
   showSearch = false,
   isLoading = false,
+  actions,
   getItemId,
 }: DataTableProps<T>) {
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -111,7 +113,7 @@ export function DataTable<T>({
                   {column.header}
                 </TableHead>
               ))}
-              {(onEdit || onDelete) && <TableHead>Actions</TableHead>}
+              {(onEdit || onDelete || actions) && <TableHead>Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,9 +164,20 @@ export function DataTable<T>({
                                   }
                                 }}
                               >
-                                <Icon path={mdiDeleteOutline} size={1} />
+                                <Icon path={mdiDeleteOutline} size={1} className="text-red-400" />
                               </Button>
                             )}
+                            {actions && actions.map((action, idx) => (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                title={action.label}
+                                onClick={() => action.onClick(row)}
+                                key={idx}
+                              >
+                                {action.icon}
+                              </Button>
+                            ))}
                           </TableCell>
                         )}
                       </TableRow>
