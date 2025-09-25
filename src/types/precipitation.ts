@@ -85,6 +85,11 @@ export interface S2SFileCreate {
   updated_time: string | null;
 }
 
+export interface S2SFileUpload extends Omit<S2SFileCreate, "file_path"> {
+  file_path?: string;
+  file?: File;
+}
+
 export interface S2SFileRead {
   s2s_id: number;
   file_path: string;

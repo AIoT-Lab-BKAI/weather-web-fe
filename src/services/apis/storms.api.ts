@@ -1,9 +1,9 @@
 import { apiService } from "@/services/api.service";
 import { PaginatedResult } from "@/types/interfaces/pagination";
 import {
-  BestTrackFileCreate,
   BestTrackFileRead,
   BestTrackFileUpdate,
+  BestTrackFileUpload,
   HRESDataCreate,
   HRESDataRead,
   HRESDataUpdate,
@@ -17,6 +17,7 @@ import {
   StormRead,
   StormUpdate,
 } from "@/types/storms";
+import { storageApi } from "./storage.api";
 
 export interface PaginationParams {
   page?: number;
@@ -49,9 +50,16 @@ export const stormsApi = {
     list: (params?: PaginationParams & { storm_id?: number }) =>
       apiService.get<PaginatedResult<BestTrackFileRead>>("/storms/besttrack-files/", { params }),
 
-    create: (data: BestTrackFileCreate) =>
-      apiService.post<BestTrackFileRead>("/storms/besttrack-files/", data),
-
+    create: async (data: BestTrackFileUpload) => {
+      const formattedDate = new Date(data.issued_time).toISOString().slice(0, 13).replace(/[-T:]/g, "").replace("Z", "");
+      await storageApi.upload({
+        file: data.file!,
+        path: `storms/${data.storm_id}/besttrack/${formattedDate}`,
+        storm_id: data.storm_id,
+        issued_date: formattedDate,
+        data_type: "besttrack",
+      });
+    },
     update: (fileId: string, data: BestTrackFileUpdate) =>
       apiService.put<BestTrackFileRead>(`/storms/besttrack-files/${fileId}`, data),
 
@@ -64,8 +72,21 @@ export const stormsApi = {
     list: (params?: PaginationParams & { storm_id?: number }) =>
       apiService.get<PaginatedResult<NWPDataRead>>("/storms/nwp-data/", { params }),
 
-    create: (data: NWPDataCreate) =>
-      apiService.post<NWPDataRead>("/storms/nwp-data/", data),
+    create: async (data: NWPDataCreate & { file?: File }) => {
+      if (data.file) {
+        const formattedDate = new Date(data.issued_time).toISOString().slice(0, 13).replace(/[-T:]/g, "").replace("Z", "");
+        await storageApi.upload({
+          file: data.file,
+          path: `storms/${data.storm_id}/nwp/${formattedDate}`,
+          storm_id: data.storm_id,
+          issued_date: formattedDate,
+          data_type: "nwp",
+        });
+      }
+      else {
+        return apiService.post<NWPDataRead>("/storms/nwp-data/", data);
+      }
+    },
 
     update: (dataId: string, data: NWPDataUpdate) =>
       apiService.put<NWPDataRead>(`/storms/nwp-data/${dataId}`, data),
@@ -79,8 +100,21 @@ export const stormsApi = {
     list: (params?: PaginationParams & { storm_id?: number }) =>
       apiService.get<PaginatedResult<HRESDataRead>>("/storms/hres-data/", { params }),
 
-    create: (data: HRESDataCreate) =>
-      apiService.post<HRESDataRead>("/storms/hres-data/", data),
+    create: async (data: HRESDataCreate & { file?: File }) => {
+      if (data.file) {
+        const formattedDate = new Date(data.issued_time).toISOString().slice(0, 13).replace(/[-T:]/g, "").replace("Z", "");
+        await storageApi.upload({
+          file: data.file,
+          path: `storms/${data.storm_id}/hres/${formattedDate}`,
+          storm_id: data.storm_id,
+          issued_date: formattedDate,
+          data_type: "hres",
+        });
+      }
+      else {
+        return apiService.post<HRESDataRead>("/storms/hres-data/", data);
+      }
+    },
 
     update: (dataId: string, data: HRESDataUpdate) =>
       apiService.put<HRESDataRead>(`/storms/hres-data/${dataId}`, data),

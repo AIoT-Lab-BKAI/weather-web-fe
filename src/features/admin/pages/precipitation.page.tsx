@@ -1,5 +1,6 @@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
 import { FormModal } from "@/components/shared/form-modal";
@@ -13,8 +14,8 @@ import {
   RainfallRecordCreate,
   RainfallRecordUpdate,
   S2SFileRead,
-  S2SFileCreate,
   S2SFileUpdate,
+  S2SFileUpload,
 } from "@/types/precipitation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
@@ -43,7 +44,8 @@ const rainfallRecordSchema = z.object({
 
 const s2sFileSchema = z.object({
   s2s_id: z.number().min(0, "S2S ID is required"),
-  file_path: z.string().min(1, "File path is required"),
+  file_path: z.string().optional(),
+  file: z.instanceof(File).optional(),
   added_time: z.string().nullable(),
   updated_time: z.string().nullable(),
 });
@@ -83,6 +85,7 @@ export function PrecipitationPage() {
   const [editingStation, setEditingStation] = useState<StationRead | null>(null);
   const [editingRecord, setEditingRecord] = useState<RainfallRecordRead | null>(null);
   const [editingFile, setEditingFile] = useState<S2SFileRead | null>(null);
+  const [_selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Forms
   const stationForm = useForm<StationCreate>({
@@ -108,11 +111,12 @@ export function PrecipitationPage() {
     },
   });
 
-  const fileForm = useForm<S2SFileCreate>({
+  const fileForm = useForm<S2SFileUpload>({
     resolver: zodResolver(s2sFileSchema),
     defaultValues: {
       s2s_id: 0,
       file_path: "",
+      file: undefined,
       added_time: null,
       updated_time: null,
     },
@@ -356,26 +360,47 @@ export function PrecipitationPage() {
   // Handle S2SFile operations
   const handleAddFile = () => {
     setEditingFile(null);
-    fileForm.reset();
+    setSelectedFile(null);
+    fileForm.reset({
+      s2s_id: 0,
+      file_path: "",
+      file: undefined,
+      added_time: null,
+      updated_time: null,
+    });
     setFileModalOpen(true);
   };
 
   const handleEditFile = (file: S2SFileRead) => {
     setEditingFile(file);
+    setSelectedFile(null);
     fileForm.reset({
+      s2s_id: file.s2s_id,
       file_path: file.file_path,
+      file: undefined,
+      added_time: file.added_time,
+      updated_time: file.updated_time,
     });
     setFileModalOpen(true);
   };
 
-  const handleFileSubmit = async (data: S2SFileCreate) => {
+  const handleFileSubmit = async (data: S2SFileUpload) => {
+    // If a file is selected, use the file name as the file_path
+    if (data.file) {
+      data.file_path = data.file.name;
+    }
+
+    // Remove the file from data before sending to API (for now, just use the filename)
+    const { file, ...apiData } = data;
+
     if (editingFile) {
-      await updateFileMutation.mutateAsync({ id: editingFile.s2s_id, data });
+      await updateFileMutation.mutateAsync({ id: editingFile.s2s_id, data: apiData });
     }
     else {
-      await createFileMutation.mutateAsync(data);
+      await createFileMutation.mutateAsync(apiData);
     }
     setFileModalOpen(false);
+    setSelectedFile(null);
   };
 
   const handleDeleteFile = (file: S2SFileRead) => {
@@ -702,12 +727,24 @@ export function PrecipitationPage() {
         />
         <FormField
           control={fileForm.control}
-          name="file_path"
+          name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>File Path *</FormLabel>
+              <FormLabel>Upload File *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="File path" />
+                <FileUpload
+                  onChange={(file) => {
+                    field.onChange(file);
+                    setSelectedFile(file);
+                    // Update file_path when file is selected
+                    if (file) {
+                      fileForm.setValue("file_path", file.name);
+                    }
+                  }}
+                  currentFileName={editingFile?.file_path}
+                  acceptedFileTypes="*/*"
+                  maxFileSize={100}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

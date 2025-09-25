@@ -99,6 +99,11 @@ export interface ReservoirOperationFileCreate {
   updated_time: string | null;
 }
 
+export interface ReservoirOperationFileUpload extends Omit<ReservoirOperationFileCreate, "file_path"> {
+  file_path?: string;
+  file?: File;
+}
+
 export interface ReservoirOperationFileRead {
   reservoir_id: number;
   file_path: string;

@@ -1,5 +1,6 @@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, TableColumn, TableState } from "@/components/shared/data-table";
 import { FormModal } from "@/components/shared/form-modal";
@@ -13,8 +14,8 @@ import {
   ReservoirOperationCreate,
   ReservoirOperationUpdate,
   ReservoirOperationFileRead,
-  ReservoirOperationFileCreate,
   ReservoirOperationFileUpdate,
+  ReservoirOperationFileUpload,
 } from "@/types/reservoirs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
@@ -47,7 +48,8 @@ const operationSchema = z.object({
 
 const operationFileSchema = z.object({
   reservoir_id: z.number().min(0, "Reservoir ID is required"),
-  file_path: z.string().min(1, "File path is required"),
+  file_path: z.string().optional(),
+  file: z.instanceof(File).optional(),
   from_time: z.string().min(1, "From time is required"),
   to_time: z.string().min(1, "To time is required"),
   added_time: z.string().nullable(),
@@ -89,6 +91,7 @@ export function RiveLevelPage() {
   const [editingReservoir, setEditingReservoir] = useState<ReservoirRead | null>(null);
   const [editingOperation, setEditingOperation] = useState<ReservoirOperationRead | null>(null);
   const [editingFile, setEditingFile] = useState<ReservoirOperationFileRead | null>(null);
+  const [_selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Forms
   const reservoirForm = useForm<ReservoirCreate>({
@@ -118,11 +121,12 @@ export function RiveLevelPage() {
     },
   });
 
-  const fileForm = useForm<ReservoirOperationFileCreate>({
+  const fileForm = useForm<ReservoirOperationFileUpload>({
     resolver: zodResolver(operationFileSchema),
     defaultValues: {
       reservoir_id: 0,
       file_path: "",
+      file: undefined,
       from_time: "",
       to_time: "",
       added_time: null,
@@ -377,29 +381,51 @@ export function RiveLevelPage() {
   // Handle file operations
   const handleAddFile = () => {
     setEditingFile(null);
-    fileForm.reset();
+    setSelectedFile(null);
+    fileForm.reset({
+      reservoir_id: 0,
+      file_path: "",
+      file: undefined,
+      from_time: "",
+      to_time: "",
+      added_time: null,
+      updated_time: null,
+    });
     setFileModalOpen(true);
   };
 
   const handleEditFile = (file: ReservoirOperationFileRead) => {
     setEditingFile(file);
+    setSelectedFile(null);
     fileForm.reset({
       reservoir_id: file.reservoir_id,
       file_path: file.file_path,
+      file: undefined,
       from_time: file.from_time,
       to_time: file.to_time,
+      added_time: file.added_time,
+      updated_time: file.updated_time,
     });
     setFileModalOpen(true);
   };
 
-  const handleFileSubmit = async (data: ReservoirOperationFileCreate) => {
+  const handleFileSubmit = async (data: ReservoirOperationFileUpload) => {
+    // If a file is selected, use the file name as the file_path
+    if (data.file) {
+      data.file_path = data.file.name;
+    }
+
+    // Remove the file from data before sending to API
+    const { file, ...apiData } = data;
+
     if (editingFile) {
-      await updateFileMutation.mutateAsync({ id: editingFile.reservoir_id, data });
+      await updateFileMutation.mutateAsync({ id: editingFile.reservoir_id, data: apiData });
     }
     else {
-      await createFileMutation.mutateAsync(data);
+      await createFileMutation.mutateAsync(apiData);
     }
     setFileModalOpen(false);
+    setSelectedFile(null);
   };
 
   const handleDeleteFile = (file: ReservoirOperationFileRead) => {
@@ -808,12 +834,24 @@ export function RiveLevelPage() {
         />
         <FormField
           control={fileForm.control}
-          name="file_path"
+          name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>File Path *</FormLabel>
+              <FormLabel>Upload File *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Path to operation file" />
+                <FileUpload
+                  onChange={(file) => {
+                    field.onChange(file);
+                    setSelectedFile(file);
+                    // Update file_path when file is selected
+                    if (file) {
+                      fileForm.setValue("file_path", file.name);
+                    }
+                  }}
+                  currentFileName={editingFile?.file_path}
+                  acceptedFileTypes="*/*"
+                  maxFileSize={100}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
