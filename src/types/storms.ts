@@ -24,6 +24,11 @@ export interface BestTrackFileCreate {
   file_name: string;
 }
 
+export interface BestTrackFileUpload extends Omit<BestTrackFileCreate, "file_name"> {
+  file_name?: string;
+  file?: File;
+}
+
 export interface BestTrackFileRead {
   id?: string;
   storm_id: number;

@@ -2,12 +2,12 @@ import { DataTable, TableColumn, TableState } from "@/components/shared/data-tab
 import { FormModal } from "@/components/shared/form-modal";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { handleApiError } from "@/lib/error-handle";
 import { stormsApi } from "@/services/apis/storms.api";
 import {
   BestTrackFileRead,
-  BestTrackFileCreate,
   BestTrackFileUpdate,
   HRESDataRead,
   HRESDataCreate,
@@ -18,6 +18,7 @@ import {
   StormCreate,
   StormRead,
   StormUpdate,
+  BestTrackFileUpload,
 } from "@/types/storms";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,18 +36,21 @@ const stormSchema = z.object({
 const bestTrackSchema = z.object({
   storm_id: z.number().min(0, "Storm ID is required"),
   issued_time: z.string().min(1, "Issued time is required"),
-  file_name: z.string().min(1, "File name is required"),
+  file_name: z.string().optional(),
+  file: z.instanceof(File).optional(),
 });
 
 const nwpDataSchema = z.object({
   storm_id: z.number().min(0, "Storm ID is required"),
-  nwp_path: z.string().min(1, "NWP path is required"),
+  nwp_path: z.string().min(1, "File is required"),
+  file: z.instanceof(File).optional(),
   issued_time: z.string().min(1, "Issued time is required"),
 });
 
 const hresDataSchema = z.object({
   storm_id: z.number().min(0, "Storm ID is required"),
-  hres_path: z.string().min(1, "HRES path is required"),
+  hres_path: z.string().min(1, "File is required"),
+  file: z.instanceof(File).optional(),
   issued_time: z.string().min(1, "Issued time is required"),
 });
 
@@ -94,6 +98,9 @@ export function TropicalCyclonePage() {
   const [editingBestTrack, setEditingBestTrack] = useState<BestTrackFileRead | null>(null);
   const [editingNwp, setEditingNwp] = useState<NWPDataRead | null>(null);
   const [editingHres, setEditingHres] = useState<HRESDataRead | null>(null);
+  const [_selectedBestTrackFile, setSelectedBestTrackFile] = useState<File | null>(null);
+  const [_selectedNwpFile, setSelectedNwpFile] = useState<File | null>(null);
+  const [_selectedHresFile, setSelectedHresFile] = useState<File | null>(null);
 
   // Forms
   const stormForm = useForm<StormCreate>({
@@ -104,29 +111,32 @@ export function TropicalCyclonePage() {
     },
   });
 
-  const bestTrackForm = useForm<BestTrackFileCreate>({
+  const bestTrackForm = useForm<BestTrackFileUpload>({
     resolver: zodResolver(bestTrackSchema),
     defaultValues: {
       storm_id: 0,
       issued_time: "",
       file_name: "",
+      file: undefined,
     },
   });
 
-  const nwpForm = useForm<NWPDataCreate>({
+  const nwpForm = useForm<NWPDataCreate & { file?: File }>({
     resolver: zodResolver(nwpDataSchema),
     defaultValues: {
       storm_id: 0,
       nwp_path: "",
+      file: undefined,
       issued_time: "",
     },
   });
 
-  const hresForm = useForm<HRESDataCreate>({
+  const hresForm = useForm<HRESDataCreate & { file?: File }>({
     resolver: zodResolver(hresDataSchema),
     defaultValues: {
       storm_id: 0,
       hres_path: "",
+      file: undefined,
       issued_time: "",
     },
   });
@@ -376,28 +386,40 @@ export function TropicalCyclonePage() {
   // Handle BestTrack operations
   const handleAddBestTrack = () => {
     setEditingBestTrack(null);
-    bestTrackForm.reset();
+    setSelectedBestTrackFile(null);
+    bestTrackForm.reset({
+      storm_id: 0,
+      issued_time: "",
+      file_name: "",
+      file: undefined,
+    });
     setBestTrackModalOpen(true);
   };
 
   const handleEditBestTrack = (file: BestTrackFileRead) => {
     setEditingBestTrack(file);
+    setSelectedBestTrackFile(null);
     bestTrackForm.reset({
       storm_id: file.storm_id,
       issued_time: file.issued_time,
       file_name: file.file_name,
+      file: undefined,
     });
     setBestTrackModalOpen(true);
   };
 
-  const handleBestTrackSubmit = async (data: BestTrackFileCreate) => {
+  const handleBestTrackSubmit = async (data: BestTrackFileUpload) => {
+    // Remove the file from data before sending to API
+    const { file, ...apiData } = data;
+
     if (editingBestTrack && editingBestTrack.id) {
-      await updateBestTrackMutation.mutateAsync({ id: editingBestTrack.id, data });
+      await updateBestTrackMutation.mutateAsync({ id: editingBestTrack.id, data: apiData });
     }
     else {
       await createBestTrackMutation.mutateAsync(data);
     }
     setBestTrackModalOpen(false);
+    setSelectedBestTrackFile(null);
   };
 
   const handleDeleteBestTrack = (file: BestTrackFileRead) => {
@@ -409,28 +431,45 @@ export function TropicalCyclonePage() {
   // Handle NWP operations
   const handleAddNwp = () => {
     setEditingNwp(null);
-    nwpForm.reset();
+    setSelectedNwpFile(null);
+    nwpForm.reset({
+      storm_id: 0,
+      nwp_path: "",
+      file: undefined,
+      issued_time: "",
+    });
     setNwpModalOpen(true);
   };
 
   const handleEditNwp = (data: NWPDataRead) => {
     setEditingNwp(data);
+    setSelectedNwpFile(null);
     nwpForm.reset({
       storm_id: data.storm_id,
       nwp_path: data.nwp_path,
+      file: undefined,
       issued_time: data.issued_time,
     });
     setNwpModalOpen(true);
   };
 
-  const handleNwpSubmit = async (data: NWPDataCreate) => {
+  const handleNwpSubmit = async (data: NWPDataCreate & { file?: File }) => {
+    // If a file is selected, use the file name as the nwp_path
+    if (data.file) {
+      data.nwp_path = data.file.name;
+    }
+
+    // Remove the file from data before sending to API
+    const { file, ...apiData } = data;
+
     if (editingNwp && editingNwp.id) {
-      await updateNwpMutation.mutateAsync({ id: editingNwp.id, data });
+      await updateNwpMutation.mutateAsync({ id: editingNwp.id, data: apiData });
     }
     else {
-      await createNwpMutation.mutateAsync(data);
+      await createNwpMutation.mutateAsync(apiData);
     }
     setNwpModalOpen(false);
+    setSelectedNwpFile(null);
   };
 
   const handleDeleteNwp = (data: NWPDataRead) => {
@@ -442,28 +481,45 @@ export function TropicalCyclonePage() {
   // Handle HRES operations
   const handleAddHres = () => {
     setEditingHres(null);
-    hresForm.reset();
+    setSelectedHresFile(null);
+    hresForm.reset({
+      storm_id: 0,
+      hres_path: "",
+      file: undefined,
+      issued_time: "",
+    });
     setHresModalOpen(true);
   };
 
   const handleEditHres = (data: HRESDataRead) => {
     setEditingHres(data);
+    setSelectedHresFile(null);
     hresForm.reset({
       storm_id: data.storm_id,
       hres_path: data.hres_path,
+      file: undefined,
       issued_time: data.issued_time,
     });
     setHresModalOpen(true);
   };
 
-  const handleHresSubmit = async (data: HRESDataCreate) => {
+  const handleHresSubmit = async (data: HRESDataCreate & { file?: File }) => {
+    // If a file is selected, use the file name as the hres_path
+    if (data.file) {
+      data.hres_path = data.file.name;
+    }
+
+    // Remove the file from data before sending to API
+    const { file, ...apiData } = data;
+
     if (editingHres && editingHres.id) {
-      await updateHresMutation.mutateAsync({ id: editingHres.id, data });
+      await updateHresMutation.mutateAsync({ id: editingHres.id, data: apiData });
     }
     else {
       await createHresMutation.mutateAsync(data);
     }
     setHresModalOpen(false);
+    setSelectedHresFile(null);
   };
 
   const handleDeleteHres = (data: HRESDataRead) => {
@@ -672,12 +728,23 @@ export function TropicalCyclonePage() {
         />
         <FormField
           control={bestTrackForm.control}
-          name="file_name"
+          name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>File Name *</FormLabel>
+              <FormLabel>Upload File *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="File name" />
+                <FileUpload
+                  onChange={(file) => {
+                    field.onChange(file);
+                    setSelectedBestTrackFile(file);
+                    // Update file_name when file is selected
+                    if (file) {
+                      bestTrackForm.setValue("file_name", file.name);
+                    }
+                  }}
+                  currentFileName={editingBestTrack?.file_name}
+                  acceptedFileTypes="*/*"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -714,12 +781,24 @@ export function TropicalCyclonePage() {
         />
         <FormField
           control={nwpForm.control}
-          name="nwp_path"
+          name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>NWP Path *</FormLabel>
+              <FormLabel>Upload NWP File *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="NWP file path" />
+                <FileUpload
+                  onChange={(file) => {
+                    field.onChange(file);
+                    setSelectedNwpFile(file);
+                    // Update nwp_path when file is selected
+                    if (file) {
+                      nwpForm.setValue("nwp_path", file.name);
+                    }
+                  }}
+                  currentFileName={editingNwp?.nwp_path}
+                  acceptedFileTypes="*/*"
+                  maxFileSize={100}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -769,12 +848,24 @@ export function TropicalCyclonePage() {
         />
         <FormField
           control={hresForm.control}
-          name="hres_path"
+          name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>HRES Path *</FormLabel>
+              <FormLabel>Upload HRES File *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="HRES file path" />
+                <FileUpload
+                  onChange={(file) => {
+                    field.onChange(file);
+                    setSelectedHresFile(file);
+                    // Update hres_path when file is selected
+                    if (file) {
+                      hresForm.setValue("hres_path", file.name);
+                    }
+                  }}
+                  currentFileName={editingHres?.hres_path}
+                  acceptedFileTypes="*/*"
+                  maxFileSize={100}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

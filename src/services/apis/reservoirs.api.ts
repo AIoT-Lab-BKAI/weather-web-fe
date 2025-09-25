@@ -8,11 +8,12 @@ import {
   ReservoirOperationRead,
   ReservoirOperationUpdate,
   ReservoirOperationPagination,
-  ReservoirOperationFileCreate,
   ReservoirOperationFileRead,
   ReservoirOperationFileUpdate,
   ReservoirOperationFilePagination,
+  ReservoirOperationFileUpload,
 } from "@/types/reservoirs";
+import { storageApi } from "./storage.api";
 
 export interface PaginationParams {
   page?: number;
@@ -60,8 +61,23 @@ export const reservoirsApi = {
     list: (params?: PaginationParams & { reservoir_id?: number; data_type?: string; start_date?: string; end_date?: string }) =>
       apiService.get<ReservoirOperationFilePagination>("/reservoirs/reservoir-operation-files/", { params }),
 
-    create: (data: ReservoirOperationFileCreate) =>
-      apiService.post<ReservoirOperationFileRead>("/reservoirs/reservoir-operation-files/", data),
+    create: async (data: ReservoirOperationFileUpload) => {
+      if (data.file) {
+        const formattedFromTime = new Date(data.from_time).toISOString().slice(0, 13).replace(/[-T:]/g, "").replace("Z", "");
+        const formattedToTime = new Date(data.to_time).toISOString().slice(0, 13).replace(/[-T:]/g, "").replace("Z", "");
+        await storageApi.upload({
+          file: data.file,
+          path: `reservoirs/${data.reservoir_id}/operations/${formattedFromTime}_${formattedToTime}`,
+          reservoir_id: data.reservoir_id,
+          from_time: data.from_time,
+          to_time: data.to_time,
+          data_type: "reservoir-operation",
+        });
+      }
+      else {
+        return apiService.post<ReservoirOperationFileRead>("/reservoirs/reservoir-operation-files/", data);
+      }
+    },
 
     update: (fileId: number, data: ReservoirOperationFileUpdate) =>
       apiService.put<ReservoirOperationFileRead>(`/reservoirs/reservoir-operation-files/${fileId}`, data),
