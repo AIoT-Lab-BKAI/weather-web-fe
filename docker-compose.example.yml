@@ -1,0 +1,9 @@
+services:
+  weather-web-fe:
+    image: weather-web-fe-build-gha
+    container_name: weather-web-fe
+    ports:
+      - "5222:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
