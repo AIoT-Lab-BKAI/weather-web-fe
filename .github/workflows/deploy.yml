@@ -41,8 +41,13 @@ jobs:
           echo "VITE_APP_API_URL=${{vars.VITE_APP_API_URL}}" >> env/.env
 
       - name: Build Docker image
-        run: |
-          docker build -t weather-web-fe-build-gha:latest .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: weather-web-fe-build-gha:latest
+          cache-from: type=gha
+          cache-to: type=gha
 
       - name: Save Docker image to tarball
         run: |
