@@ -9,6 +9,9 @@ const axiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  paramsSerializer: {
+    indexes: null, // This will serialize arrays as: storm_ids=1&storm_ids=2
+  },
 });
 
 export interface IApiError {

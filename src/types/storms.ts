@@ -6,6 +6,8 @@ export interface StormCreate {
 
 export interface StormRead {
   storm_name: string;
+  start_date: string;
+  end_date: string;
   storm_id: number;
   created_at: string;
   updated_at: string;

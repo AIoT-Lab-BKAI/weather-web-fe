@@ -1,13 +1,18 @@
 import { Outlet } from "@tanstack/react-router";
+import { MapContainer } from "react-leaflet";
 import { MapCanvas } from "./components/map-canvas";
 import { SearchInput } from "./components/search-input";
+import { StormSelector } from "./components/storm-selector";
 import { TimelineControl } from "./components/timeline-control";
 import { WeatherSidebar } from "./components/weather-sidebar";
-import { MapContainer } from "react-leaflet";
 import { WeatherMapLayoutProvider, useWeatherMapLayout } from "./context";
 
 function WeatherMapLayoutContent() {
-  const { selectedStation, mapCenter, mapZoom } = useWeatherMapLayout();
+  const {
+    selectedStation,
+    mapCenter,
+    mapZoom,
+  } = useWeatherMapLayout();
 
   return (
     <div className="h-screen w-screen relative">
@@ -30,6 +35,8 @@ function WeatherMapLayoutContent() {
       <div className="absolute top-[95px] left-6 pointer-events-auto">
         <WeatherSidebar />
       </div>
+
+      <StormSelector />
 
       <div
         className={`

@@ -1,6 +1,6 @@
 import { formatTimestamp } from "@/lib/date-time";
 import { stormsApi } from "@/services/apis/storms.api";
-import { StormLifecycleRead, StormRead } from "@/types/storms";
+import { StormLifecycleRead } from "@/types/storms";
 import { mdiWeatherHurricaneOutline } from "@mdi/js";
 import Icon from "@mdi/react";
 import dayjs from "dayjs";
@@ -44,59 +44,52 @@ function createCycloneIcon(status: "past" | "forecast") {
 export function TropicalCyclonePage() {
   const [cycloneData, setCycloneData] = useState<CyclonePoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const { selectedDate, setSelectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
+  const { selectedDate, setSelectedDate, selectedHour, setSliderMarks, selectedStormId, setSelectedStormId, setIsStormSelectorOpen } = useWeatherMapLayout();
   const [data, setData] = useState<StormLifecycleRead[]>([]);
-  const [_storms, setStorms] = useState<StormRead[]>([]);
 
   useEffect(() => {
-    const fetchCycloneData = async () => {
-      try {
-        setLoading(true);
-        const storms = await stormsApi.storms.list();
-        setStorms(storms.data);
-      }
-      catch (error) {
-        console.error("Error fetching cyclone data:", error);
-      }
-      finally {
-        setLoading(false);
-      }
+    setLoading(false);
+    setIsStormSelectorOpen(true);
+    return () => {
+      setIsStormSelectorOpen(false);
+      setSelectedStormId(null);
     };
-
-    fetchCycloneData();
   }, []);
 
   useEffect(() => {
+    if (!selectedStormId) {
+      setData([]);
+      return;
+    }
     const fetchCycloneData = async () => {
-      if (!selectedDate) {
-        setData([]);
-        return;
-      }
-
       const stormLifecycles = await stormsApi.stormLifecycle.list({
-        start_date: dayjs(selectedDate).subtract(30, "day").startOf("day").toISOString(),
-        end_date: dayjs(selectedDate).add(30, "day").endOf("day").toISOString(),
+        storm_ids: [selectedStormId || 0],
       });
 
       const data = stormLifecycles.data.sort((a, b) => {
         return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
       });
 
+      const endDate = new Date(data[data.length - 1].timestamp);
+      endDate.setDate(endDate.getDate() - 1);
+
+      setSelectedDate(endDate || new Date());
+
       setData(data);
     };
     fetchCycloneData();
-  }, [selectedDate]);
+  }, [selectedStormId, setSelectedDate]);
 
   useEffect(() => {
     if (data.length === 0)
       return;
 
-    const maxDate = dayjs(data[data.length - 1].timestamp);
-    const minDate = dayjs(data[0].timestamp);
-    if (selectedDate && (dayjs(selectedDate).isBefore(minDate, "day") || dayjs(selectedDate).isAfter(maxDate, "day"))) {
-      setCycloneData([]);
-      return;
-    }
+    // const maxDate = dayjs(data[data.length - 1].timestamp);
+    // const minDate = dayjs(data[0].timestamp);
+    // if (selectedDate && (dayjs(selectedDate).isBefore(minDate, "day") || dayjs(selectedDate).isAfter(maxDate, "day"))) {
+    //   setCycloneData([]);
+    //   return;
+    // }
 
     const sliderMarks = data.filter((item: StormLifecycleRead) => {
       return dayjs(item.timestamp).isSame(selectedDate, "day");
@@ -162,7 +155,7 @@ export function TropicalCyclonePage() {
     });
 
     setCycloneData(filteredData);
-  }, [data, selectedDate, selectedHour, setSelectedDate, setSliderMarks]);
+  }, [data, selectedDate, selectedHour, setSliderMarks]);
 
   if (loading) {
     return null; // Or loading spinner
@@ -174,8 +167,24 @@ export function TropicalCyclonePage() {
   const forecastStartIndex = cycloneData.findIndex(
     p => p.status === "forecast",
   );
-  const pastPath = allPositions.slice(0, forecastStartIndex + 1);
-  const forecastPath = allPositions.slice(forecastStartIndex);
+
+  // Xử lý trường hợp selectedDate nằm ngoài khoảng dữ liệu
+  let pastPath: [number, number][] = [];
+  let forecastPath: [number, number][] = [];
+
+  if (forecastStartIndex === -1) {
+    // Tất cả là past (selectedDate sau tất cả các điểm)
+    pastPath = allPositions;
+  }
+  else if (forecastStartIndex === 0) {
+    // Tất cả là forecast (selectedDate trước tất cả các điểm)
+    forecastPath = allPositions;
+  }
+  else {
+    // Trường hợp bình thường: có cả past và forecast
+    pastPath = allPositions.slice(0, forecastStartIndex + 1);
+    forecastPath = allPositions.slice(forecastStartIndex);
+  }
 
   return (
     <>

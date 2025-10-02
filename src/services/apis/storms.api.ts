@@ -124,7 +124,7 @@ export const stormsApi = {
   },
 
   stormLifecycle: {
-    list: (params?: PaginationParams & { storm_id?: number; start_date?: string; end_date?: string }) =>
+    list: (params?: PaginationParams & { storm_ids?: number[]; start_date?: string; end_date?: string }) =>
       apiService.get<PaginatedResult<StormLifecycleRead>>("/storms/storm-lifecycle/", { params }),
 
     create: (data: StormLifecycleCreate) =>
