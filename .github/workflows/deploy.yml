@@ -19,6 +19,7 @@ jobs:
           [[ -n "${{ secrets.SERVER_SSH_KEY }}" ]] || { echo "❌ SERVER_SSH_KEY secret missing"; exit 1; }
           [[ -n "${{ vars.DOCKER_COMPOSE_DIR }}" ]] || { echo "❌ DOCKER_COMPOSE_DIR variable missing"; exit 1; }
           [[ -n "${{ vars.DOCKER_COMPOSE_SERVICE }}" ]] || { echo "❌ DOCKER_COMPOSE_SERVICE variable missing"; exit 1; }
+          [[ -n "${{ vars.VITE_APP_API_URL }}" ]] || { echo "❌ VITE_APP_API_URL variable missing"; exit 1; }
           echo "✅ All secrets and variables configured"
 
   build:
@@ -33,9 +34,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Create .env file
+        run: |
+          cp env/.env.example env/.env
+          echo -e "\n" >> env/.env
+          echo "VITE_APP_API_URL=${{vars.VITE_APP_API_URL}}" >> env/.env
+
       - name: Build Docker image
         run: |
-          echo "IMAGE_NAME=weather-web-fe-build-gha" >> $GITHUB_ENV
           docker build -t weather-web-fe-build-gha:latest .
 
       - name: Save Docker image to tarball
