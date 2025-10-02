@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useMemo, useState, use } from "react";
 import { StationInfo } from "./types";
 import { SliderMarks } from "antd/es/slider";
+import { StormRead } from "@/types/storms";
 
 export interface WeatherMapLayoutContextType {
   // Sidebar state
@@ -42,6 +43,14 @@ export interface WeatherMapLayoutContextType {
 
   sliderDisabled: boolean;
   setSliderDisabled: (disabled: boolean) => void;
+
+  // Storm selector
+  storms: StormRead[];
+  setStorms: (storms: StormRead[]) => void;
+  selectedStormId: number | null;
+  setSelectedStormId: (stormId: number | null) => void;
+  isStormSelectorOpen: boolean;
+  setIsStormSelectorOpen: (open: boolean) => void;
 }
 
 export const WeatherMapLayoutContext = createContext<WeatherMapLayoutContextType | undefined>(undefined);
@@ -70,6 +79,11 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const [sliderMarks, setSliderMarks] = useState<SliderMarks>({});
   const [sliderDisabled, setSliderDisabled] = useState<boolean>(false);
+
+  // Storm selector
+  const [storms, setStorms] = useState<StormRead[]>([]);
+  const [selectedStormId, setSelectedStormId] = useState<number | null>(null);
+  const [isStormSelectorOpen, setIsStormSelectorOpen] = useState<boolean>(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
@@ -101,6 +115,12 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       setSliderMarks,
       sliderDisabled,
       setSliderDisabled,
+      storms,
+      setStorms,
+      selectedStormId,
+      setSelectedStormId,
+      isStormSelectorOpen,
+      setIsStormSelectorOpen,
     }),
     [
       sidebarCollapsed,
@@ -115,6 +135,9 @@ export function WeatherMapLayoutProvider({ children }: { children: ReactNode }) 
       selectedDate,
       sliderMarks,
       sliderDisabled,
+      storms,
+      selectedStormId,
+      isStormSelectorOpen,
     ],
   );
 
