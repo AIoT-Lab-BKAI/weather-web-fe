@@ -1,28 +1,126 @@
-import { precipitationApi } from "@/services/apis/precipitation.api";
-import { RainfallRecordRead, StationRead } from "@/types/precipitation";
 import { mdiWeatherPouring } from "@mdi/js";
 import Icon from "@mdi/react";
 import L from "leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import ReactDOM from "react-dom";
 import ReactDOMServer from "react-dom/server";
 import { Marker } from "react-leaflet";
+import { MapLoadingOverlay } from "@/components/shared/loading-overlay";
+import { showNotification } from "@/lib/notification";
+import { RainfallRecordRead, StationRead } from "@/types/precipitation";
 import { StationInfoPanel } from "../components/station-info-panel";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
+import {
+  useStations,
+  useAllStationsRainfallRecords,
+  useStationRainfallRecords,
+} from "../hooks/use-precipitation-data";
 import { ChartData, LevelData, StationInfo } from "../types";
 
+// Transform API station data to StationInfo format
+function transformStationData(apiStations: StationRead[]): StationInfo[] {
+  return apiStations
+    .filter(station => station.latitude && station.longitude) // Only include stations with coordinates
+    .map(station => ({
+      id: station.station_id,
+      name: station.station_name,
+      details: `Lat: ${station.latitude}, Lon: ${station.longitude}${station.elevation ? `, Alt: ${station.elevation}m` : ""}`,
+      lat: station.latitude!,
+      lng: station.longitude!,
+    }));
+}
+
+// Transform rainfall records to chart data
+function transformRainfallData(records: RainfallRecordRead[]): LevelData[] {
+  // Group records by time periods and create chart data
+  const dailyData: ChartData[] = records
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    .map((record) => {
+      const date = new Date(record.start_time);
+      const formattedDate = `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
+      return {
+        label: formattedDate,
+        value: record.accumulated_rainfall,
+      };
+    });
+
+  return [
+    {
+      title: "Dự báo lượng mưa trong 7 ngày tới",
+      data: dailyData,
+      color: "#6155F5",
+    },
+  ];
+}
+
 export function PrecipitationPage() {
-  const { selectedStation, setSelectedStation, selectedDate, setSliderDisabled } = useWeatherMapLayout();
-  const [stations, setStations] = useState<StationInfo[]>([]);
-  const [rainfallData, setRainfallData] = useState<LevelData[]>([]);
-  const [stationDailyRecords, setStationDailyRecords] = useState<Map<number, RainfallRecordRead[]>>(() => new Map());
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { selectedStation, setSelectedStation, selectedDate, setSliderDisabled } = useWeatherMapStore();
+
+  // Fetch stations data
+  const {
+    data: stationsData = [],
+    isLoading: isLoadingStations,
+    isError: isStationsError,
+    error: stationsError,
+  } = useStations();
+
+  // Transform station data
+  const stations = useMemo(() => transformStationData(stationsData), [stationsData]);
+
+  // Fetch all stations rainfall records
+  const {
+    data: stationDailyRecords = new Map(),
+    isLoading: isLoadingRainfallRecords,
+  } = useAllStationsRainfallRecords(selectedDate, stationsData);
+
+  // Fetch specific station rainfall data for chart
+  const forecastStartDate = useMemo(() => {
+    if (!selectedDate)
+      return null;
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 1);
+    return date;
+  }, [selectedDate]);
+
+  const forecastEndDate = useMemo(() => {
+    if (!selectedDate)
+      return null;
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 9);
+    return date;
+  }, [selectedDate]);
+
+  const {
+    data: stationForecastData = [],
+    isLoading: isLoadingForecast,
+  } = useStationRainfallRecords(
+    selectedStation?.id ?? null,
+    forecastStartDate,
+    forecastEndDate,
+  );
+
+  // Transform forecast data for chart
+  const rainfallData = useMemo(() => {
+    if (!stationForecastData.length)
+      return [];
+    return transformRainfallData(stationForecastData);
+  }, [stationForecastData]);
 
   useEffect(() => {
     setSliderDisabled(true);
     return () => setSliderDisabled(false);
   }, [setSliderDisabled]);
+
+  // Show error notification
+  useEffect(() => {
+    if (isStationsError) {
+      showNotification.error({
+        message: "Lỗi tải dữ liệu",
+        description: "Không thể tải dữ liệu trạm đo. Vui lòng thử lại sau.",
+      });
+      console.error("Error fetching stations:", stationsError);
+    }
+  }, [isStationsError, stationsError]);
 
   // Color scale for rainfall intensity (mm/hour)
   const getRainfallColor = (rainfall: number): string => {
@@ -50,7 +148,7 @@ export function PrecipitationPage() {
       return 0;
 
     // Find the record that contains the target hour
-    const matchingRecord = records.find((record) => {
+    const matchingRecord = records.find((record: RainfallRecordRead) => {
       const recordDate = new Date(record.start_time).toDateString();
       const targetDate = new Date(selectedDate).toDateString();
       return recordDate.slice(0, 10) === targetDate.slice(0, 10);
@@ -59,139 +157,6 @@ export function PrecipitationPage() {
     return matchingRecord ? matchingRecord.accumulated_rainfall : 0;
   };
 
-  // Transform API station data to StationInfo format
-  const transformStationData = (apiStations: StationRead[]): StationInfo[] => {
-    return apiStations
-      .filter(station => station.latitude && station.longitude) // Only include stations with coordinates
-      .map(station => ({
-        id: station.station_id,
-        name: station.station_name,
-        details: `Lat: ${station.latitude}, Lon: ${station.longitude}${station.elevation ? `, Alt: ${station.elevation}m` : ""}`,
-        lat: station.latitude!,
-        lng: station.longitude!,
-      }));
-  };
-
-  // Transform rainfall records to chart data
-  const transformRainfallData = (records: RainfallRecordRead[]): LevelData[] => {
-    // Group records by time periods and create chart data
-    const dailyData: ChartData[] = records
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-      .map((record) => {
-        const date = new Date(record.start_time);
-        const formattedDate = `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
-        return {
-          label: formattedDate,
-          value: record.accumulated_rainfall,
-        };
-      });
-
-    return [
-      {
-        title: "Dự báo lượng mưa trong 7 ngày tới",
-        data: dailyData,
-        color: "#6155F5",
-      },
-    ];
-  };
-
-  // Fetch stations data
-  useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        setLoading(true);
-        const response = await precipitationApi.stations.list();
-        const transformedStations = transformStationData(response.data);
-        setStations(transformedStations);
-        setError(null);
-      }
-      catch (err) {
-        setError("Không thể tải dữ liệu trạm đo. Vui lòng thử lại sau.");
-        console.error("Error fetching stations:", err);
-      }
-      finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStations();
-  }, []);
-
-  // Fetch rainfall data for all stations based on selected date
-  useEffect(() => {
-    const fetchAllStationsRainfall = async () => {
-      if (!selectedDate || stations.length === 0) {
-        setStationDailyRecords(new Map());
-        return;
-      }
-
-      try {
-        const targetDate = new Date(selectedDate);
-        const startTime = new Date(targetDate);
-        startTime.setDate(startTime.getDate() - 15);
-        const endTime = new Date(targetDate);
-        endTime.setDate(endTime.getDate() + 15);
-
-        // Create a Map to store rainfall records for each station
-        const recordsMap = new Map<number, RainfallRecordRead[]>();
-
-        const response = await precipitationApi.rainfallRecords.list({
-          start_date: startTime.toISOString().split("T")[0],
-          end_date: endTime.toISOString().split("T")[0],
-          limit: 10000,
-        });
-
-        for (const record of response.data) {
-          if (!recordsMap.has(record.station_id)) {
-            recordsMap.set(record.station_id, []);
-          }
-          recordsMap.get(record.station_id)!.push(record);
-        }
-
-        setStationDailyRecords(recordsMap);
-      }
-      catch (err) {
-        console.error("Error fetching stations rainfall:", err);
-        setStationDailyRecords(new Map());
-      }
-    };
-
-    fetchAllStationsRainfall();
-  }, [selectedDate, stations]); // Only depend on selectedDate, not selectedHour
-
-  // Fetch rainfall data when a station is selected
-  useEffect(() => {
-    const fetchRainfallData = async () => {
-      if (!selectedStation) {
-        setRainfallData([]);
-        return;
-      }
-
-      try {
-        const endDate = new Date(selectedDate || new Date());
-        endDate.setDate(endDate.getDate() + 9);
-        const startDate = new Date(selectedDate || new Date());
-        startDate.setDate(startDate.getDate() + 1);
-
-        const response = await precipitationApi.rainfallRecords.list({
-          station_id: selectedStation.id,
-          start_date: startDate.toISOString().split("T")[0],
-          end_date: endDate.toISOString().split("T")[0],
-        });
-
-        const transformedData = transformRainfallData(response.data);
-        setRainfallData(transformedData);
-      }
-      catch (err) {
-        console.error("Error fetching rainfall data:", err);
-        // Fallback to empty data instead of showing error to user
-        setRainfallData([]);
-      }
-    };
-
-    fetchRainfallData();
-  }, [selectedStation, selectedDate]);
-
   const handleMarkerClick = (station: StationInfo) => {
     setSelectedStation(station);
   };
@@ -199,20 +164,6 @@ export function PrecipitationPage() {
   const handlePanelClose = () => {
     setSelectedStation(null);
   };
-
-  // Show loading state
-  if (loading) {
-    return null; // Or you could return a loading spinner
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="absolute top-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-        {error}
-      </div>
-    );
-  }
 
   const createLevelIcon = (rainfall: number = 0) => {
     const color = getRainfallColor(rainfall);
@@ -262,9 +213,14 @@ export function PrecipitationPage() {
     });
   };
 
+  // Show loading overlay
+  const isLoading = isLoadingStations || isLoadingRainfallRecords;
+
   return (
     <>
-      {stations.map((station) => {
+      {isLoading && <MapLoadingOverlay message="Đang tải dữ liệu trạm đo..." />}
+
+      {stations.map((station: StationInfo) => {
         const rainfall = getRainfall(station.id);
         return (
           <Marker
@@ -289,6 +245,7 @@ export function PrecipitationPage() {
             station={selectedStation}
             levelData={rainfallData}
             onClose={handlePanelClose}
+            isLoading={isLoadingForecast}
           />
         </div>,
         document.body,

@@ -1,5 +1,6 @@
 import Icon from "@mdi/react";
 import { mdiClose } from "@mdi/js";
+import { Spin } from "antd";
 import { ForecastChart } from "./customized/forecast-chart";
 import { LevelData, StationInfo } from "../types";
 
@@ -7,12 +8,14 @@ interface StationInfoPanelProps {
   station: StationInfo | null;
   levelData: LevelData[];
   onClose: () => void;
+  isLoading?: boolean;
 }
 
 export function StationInfoPanel({
   station,
   levelData,
   onClose,
+  isLoading = false,
 }: StationInfoPanelProps) {
   if (!station) {
     return null;
@@ -36,14 +39,29 @@ export function StationInfoPanel({
       </div>
 
       <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
-        {levelData.map((data, index) => (
-          <ForecastChart
-            key={index}
-            title={data.title}
-            data={data.data}
-            color={data.color}
-          />
-        ))}
+        {isLoading
+          ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-4">
+                <Spin size="large" />
+                <p className="text-gray-600">Đang tải dữ liệu dự báo...</p>
+              </div>
+            )
+          : levelData.length > 0
+            ? (
+                levelData.map((data, index) => (
+                  <ForecastChart
+                    key={index}
+                    title={data.title}
+                    data={data.data}
+                    color={data.color}
+                  />
+                ))
+              )
+            : (
+                <div className="text-center py-8 text-gray-500">
+                  Không có dữ liệu dự báo
+                </div>
+              )}
       </div>
     </div>
   );

@@ -5,14 +5,14 @@ import { SearchInput } from "./components/search-input";
 import { StormSelector } from "./components/storm-selector";
 import { TimelineControl } from "./components/timeline-control";
 import { WeatherSidebar } from "./components/weather-sidebar";
-import { WeatherMapLayoutProvider, useWeatherMapLayout } from "./context";
+import { useWeatherMapStore } from "./store";
 
 function WeatherMapLayoutContent() {
   const {
     selectedStation,
     mapCenter,
     mapZoom,
-  } = useWeatherMapLayout();
+  } = useWeatherMapStore();
 
   return (
     <div className="h-screen w-screen relative">
@@ -51,9 +51,5 @@ function WeatherMapLayoutContent() {
 }
 
 export function WeatherMapLayout() {
-  return (
-    <WeatherMapLayoutProvider>
-      <WeatherMapLayoutContent />
-    </WeatherMapLayoutProvider>
-  );
+  return <WeatherMapLayoutContent />;
 }

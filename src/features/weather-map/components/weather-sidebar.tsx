@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
 
 import {
   mdiAccountKeyOutline,
@@ -46,7 +46,7 @@ const menuItems = [
 ];
 
 export function WeatherSidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useWeatherMapLayout();
+  const { sidebarCollapsed, toggleSidebar } = useWeatherMapStore();
 
   return (
     <aside className="flex flex-col w-[219px] p-4 gap-2 rounded-2xl bg-white/70 backdrop-blur-sm shadow-lg transition-all duration-300">
