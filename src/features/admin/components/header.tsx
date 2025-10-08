@@ -1,14 +1,16 @@
-import { useAuth } from "@/features/auth/context";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/features/auth/store";
 import { useNavigate } from "@tanstack/react-router";
 import { Popover } from "antd";
 import { ChevronDown, CircleUserIcon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
-import { useAdminLayout } from "../context";
-import { Button } from "@/components/ui/button";
+import { useAdminLayoutStore } from "../store";
+import { useAuth } from "@/features/auth/hooks/use-auth";
 
 export function HeaderComponent() {
-  const { user, logout } = useAuth();
-  const { headerTitle } = useAdminLayout();
+  const { user } = useAuthStore();
+  const { logout } = useAuth();
+  const { headerTitle } = useAdminLayoutStore();
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);

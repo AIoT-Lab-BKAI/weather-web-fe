@@ -6,7 +6,7 @@ import { EyeIcon, EyeOffIcon, LockIcon, MailIcon, UserIcon } from "lucide-react"
 import { useState } from "react";
 import { z } from "zod";
 import { registerApi } from "../apis/auth.api";
-import { useAuth } from "../context";
+import { useAuth } from "@/features/auth/hooks/use-auth";
 
 // Validation schema
 const registerSchema = z.object({

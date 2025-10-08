@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/features/auth/context";
+import { useAuthStore } from "@/features/auth/store";
 import { apiService } from "@/services/api.service";
 import { useQueryClient } from "@tanstack/react-query";
 import { notification } from "antd";
 import { useEffect, useState } from "react";
 
 export function DashboardProfilePage() {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",

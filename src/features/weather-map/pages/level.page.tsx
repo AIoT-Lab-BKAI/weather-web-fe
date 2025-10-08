@@ -1,18 +1,18 @@
-import { Marker } from "react-leaflet";
-import L from "leaflet";
-import ReactDOMServer from "react-dom/server";
-import Icon from "@mdi/react";
-import { mdiWaterOutline } from "@mdi/js";
-import { StationInfoPanel } from "../components/station-info-panel";
-import ReactDOM from "react-dom";
-import { ChartData, LevelData, StationInfo } from "../types";
-import { useWeatherMapLayout } from "../context";
 import { reservoirsApi } from "@/services/apis/reservoirs.api";
-import { useState, useEffect } from "react";
-import { ReservoirRead, ReservoirOperationRead } from "@/types/reservoirs";
+import { ReservoirOperationRead, ReservoirRead } from "@/types/reservoirs";
+import { mdiWaterOutline } from "@mdi/js";
+import Icon from "@mdi/react";
+import L from "leaflet";
+import { useEffect, useState } from "react";
+import ReactDOM from "react-dom";
+import ReactDOMServer from "react-dom/server";
+import { Marker } from "react-leaflet";
+import { StationInfoPanel } from "../components/station-info-panel";
+import { ChartData, LevelData, StationInfo } from "../types";
+import { useWeatherMapStore } from "../store";
 
 export function LevelPage() {
-  const { selectedStation, setSelectedStation, selectedDate, selectedHour, setSliderMarks } = useWeatherMapLayout();
+  const { selectedStation, setSelectedStation, selectedDate, selectedHour, setSliderMarks } = useWeatherMapStore();
   const [stations, setStations] = useState<StationInfo[]>([]);
   const [levelData, setLevelData] = useState<LevelData[]>([]);
   const [reservoirOperations, setReservoirOperations] = useState<Map<number, ReservoirOperationRead[]>>(() => new Map());
@@ -166,7 +166,7 @@ export function LevelPage() {
     };
 
     fetchAllReservoirOperations();
-  }, [selectedDate, stations]); // Only depend on selectedDate, not selectedHour
+  }, [selectedDate, stations, setSliderMarks]); // Only depend on selectedDate, not selectedHour
 
   // Fetch level data when a station is selected
   useEffect(() => {

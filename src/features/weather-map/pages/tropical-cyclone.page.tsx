@@ -54,7 +54,7 @@ export function TropicalCyclonePage() {
       setIsStormSelectorOpen(false);
       setSelectedStormId(null);
     };
-  }, []);
+  }, [setIsStormSelectorOpen, setSelectedStormId]);
 
   useEffect(() => {
     if (!selectedStormId) {

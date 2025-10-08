@@ -1,9 +1,9 @@
-import { useAuth } from "@/features/auth/context";
+import { useAuthStore } from "@/features/auth/store";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 export function useRequireAuth() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
