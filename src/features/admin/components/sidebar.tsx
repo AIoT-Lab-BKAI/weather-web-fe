@@ -5,7 +5,7 @@ import Icon from "@mdi/react";
 import { Link, LinkComponentProps } from "@tanstack/react-router";
 import clsx from "clsx";
 import { ChevronLeftIcon, ChevronRightIcon, UserIcon } from "lucide-react";
-import { useAdminLayout } from "../context";
+import { useAdminLayoutStore } from "../store";
 
 interface NavItemBase extends Omit<LinkComponentProps, "children"> {
   label: string;
@@ -47,7 +47,7 @@ export function Sidebar() {
     },
   ];
 
-  const { sidebarCollapsed, toggleSidebar } = useAdminLayout();
+  const { sidebarCollapsed, toggleSidebar } = useAdminLayoutStore();
 
   return (
     <aside
@@ -97,7 +97,7 @@ export function Sidebar() {
  * NavigationItem -----------------------------------------------
  */
 function NavigationItem(item: NavItem) {
-  const { sidebarCollapsed, setHeaderTitle } = useAdminLayout();
+  const { sidebarCollapsed, setHeaderTitle } = useAdminLayoutStore();
   const { icon, label, ...linkProps } = item;
 
   const linkClass = clsx(
@@ -109,11 +109,15 @@ function NavigationItem(item: NavItem) {
   };
 
   return (
-    <Link {...linkProps} className={linkClass} activeProps={activeProps}>
+    <Link
+      {...linkProps}
+      className={linkClass}
+      activeProps={activeProps}
+      onClick={() => {
+        setHeaderTitle(label);
+      }}
+    >
       {({ isActive }) => {
-        if (isActive) {
-          setHeaderTitle(label);
-        }
         return (
           <>
             <span className={clsx("flex justify-center p-1 rounded-full", isActive && "bg-main text-white")}>{icon}</span>

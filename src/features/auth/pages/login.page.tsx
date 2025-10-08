@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/features/auth/context";
 import { handleApiError } from "@/lib/error-handle";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Input, notification } from "antd";
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "lucide-react";
 import { useState } from "react";
 import { loginApi } from "../apis/auth.api";
+import { useAuth } from "@/features/auth/hooks/use-auth";
 
 export function LoginPage() {
   const { login } = useAuth();

@@ -1,16 +1,13 @@
 import { Outlet } from "@tanstack/react-router";
 import { HeaderComponent } from "./components/header";
 import { Sidebar } from "./components/sidebar";
-import { AdminLayoutProvider } from "./context";
 
 function AdminLayoutContent() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-
       <main className="flex-1">
         <HeaderComponent />
-
         <div className="h-[calc(100vh-var(--header-height))]">
           <Outlet />
         </div>
@@ -21,8 +18,6 @@ function AdminLayoutContent() {
 
 export function AdminLayout() {
   return (
-    <AdminLayoutProvider>
-      <AdminLayoutContent />
-    </AdminLayoutProvider>
+    <AdminLayoutContent />
   );
 }
