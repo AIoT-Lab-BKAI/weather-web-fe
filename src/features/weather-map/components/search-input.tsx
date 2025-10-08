@@ -1,6 +1,6 @@
 import Icon from "@mdi/react";
 import { mdiMagnify, mdiLoading } from "@mdi/js";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
 import { ChangeEvent, KeyboardEvent, useCallback } from "react";
 
 export function SearchInput() {
@@ -13,7 +13,7 @@ export function SearchInput() {
     setSelectedStation,
     setMapCenter,
     setMapZoom,
-  } = useWeatherMapLayout();
+  } = useWeatherMapStore();
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim())

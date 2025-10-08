@@ -3,7 +3,7 @@ import Icon from "@mdi/react";
 import { ConfigProvider, DatePicker, Slider } from "antd";
 import dayjs from "dayjs";
 import { FC, ReactNode } from "react";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
 
 const CircleButton: FC<{ children: ReactNode; className?: string; onClick?: () => void }> = ({
   children,
@@ -19,7 +19,7 @@ const CircleButton: FC<{ children: ReactNode; className?: string; onClick?: () =
 );
 
 export function TimelineControl() {
-  const { selectedHour, setSelectedHour, selectedDate, setSelectedDate, sliderMarks, sliderDisabled } = useWeatherMapLayout();
+  const { selectedHour, setSelectedHour, selectedDate, setSelectedDate, sliderMarks, sliderDisabled } = useWeatherMapStore();
 
   const handlePreviousDay = () => {
     if (selectedDate) {

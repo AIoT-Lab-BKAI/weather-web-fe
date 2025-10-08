@@ -3,10 +3,10 @@ import { mdiWeatherHurricaneOutline } from "@mdi/js";
 import Icon from "@mdi/react";
 import dayjs from "dayjs";
 import { useEffect } from "react";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
 
 export function StormSelector() {
-  const { isStormSelectorOpen, setSelectedStormId, setStorms, storms, selectedStormId } = useWeatherMapLayout();
+  const { isStormSelectorOpen, setSelectedStormId, setStorms, storms, selectedStormId } = useWeatherMapStore();
   const handleStormClick = (stormId: number | null) => {
     setSelectedStormId(stormId);
   };

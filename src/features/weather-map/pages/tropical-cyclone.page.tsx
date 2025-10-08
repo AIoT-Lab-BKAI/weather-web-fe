@@ -8,7 +8,7 @@ import L from "leaflet";
 import React, { useEffect, useState } from "react";
 import ReactDOMServer from "react-dom/server";
 import { Circle, Marker, Polyline, Tooltip } from "react-leaflet";
-import { useWeatherMapLayout } from "../context";
+import { useWeatherMapStore } from "../store";
 
 interface CyclonePoint extends StormLifecycleRead {
   status: "past" | "forecast";
@@ -44,7 +44,7 @@ function createCycloneIcon(status: "past" | "forecast") {
 export function TropicalCyclonePage() {
   const [cycloneData, setCycloneData] = useState<CyclonePoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const { selectedDate, setSelectedDate, selectedHour, setSliderMarks, selectedStormId, setSelectedStormId, setIsStormSelectorOpen } = useWeatherMapLayout();
+  const { selectedDate, setSelectedDate, selectedHour, setSliderMarks, selectedStormId, setSelectedStormId, setIsStormSelectorOpen } = useWeatherMapStore();
   const [data, setData] = useState<StormLifecycleRead[]>([]);
 
   useEffect(() => {
