@@ -68,12 +68,21 @@ export function TropicalCyclonePage() {
 
       const data = stormLifecycles.data.sort((a, b) => {
         return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      }).map((u) => {
+        u.timestamp = `${u.timestamp}Z`;
+        return u;
       });
 
-      const endDate = new Date(data[data.length - 1].timestamp);
-      endDate.setDate(endDate.getDate() - 1);
+      if (data.length === 0) {
+        setSelectedDate(new Date());
+        setData([]);
+        return;
+      }
 
-      setSelectedDate(endDate || new Date());
+      const startDate = new Date(data[0].timestamp);
+      startDate.setDate(startDate.getDate() - 0);
+
+      setSelectedDate(startDate || new Date());
 
       setData(data);
     };
@@ -123,7 +132,7 @@ export function TropicalCyclonePage() {
         const forecastIndex = data.slice(0, index + 1).filter((d: StormLifecycleRead) =>
           new Date(d.timestamp) > referenceTime,
         ).length;
-        radius = Math.min(8000 + 15000 * Math.log(forecastIndex + 1));
+        radius = 8000 + 20000 * Math.log(forecastIndex + 1);
       }
 
       return {

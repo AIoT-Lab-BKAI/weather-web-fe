@@ -15,7 +15,8 @@ export function StormSelector() {
     const fetchStorms = async () => {
       try {
         const response = await stormsApi.storms.list();
-        setStorms(response.data);
+        const data = response.data.sort((a, b) => b.storm_id - a.storm_id);
+        setStorms(data);
       }
       catch (error) {
         console.error("Error fetching storms:", error);
